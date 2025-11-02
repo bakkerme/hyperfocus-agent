@@ -1,5 +1,6 @@
 """Directory operations and related tool definitions."""
 import os
+from .types import ChatCompletionToolParam
 
 
 def list_directory(path: str) -> list:
@@ -25,7 +26,7 @@ def create_directory(path: str) -> str:
 
 
 # Tool definitions for directory operations
-DIRECTORY_TOOLS = [
+DIRECTORY_TOOLS: list[ChatCompletionToolParam] = [
     {
         "type": "function",
         "function": {

@@ -49,34 +49,56 @@ The project uses a **whitelist-based tool execution architecture** with three la
 - **directory_ops.py**: Directory operations (list, create, change, get current)
 - **file_ops.py**: File operations (read, create, append)
 - **utils.py**: Utility functions (say_hello demo)
+- **types.py**: TypedDict definitions for OpenAI function calling schemas
+
+### Type System
+
+The project uses the OpenAI SDK's native types, re-exported through [types.py](src/hyperfocus_agent/types.py) for convenience:
+
+- `ChatCompletionToolParam`: The official OpenAI type for tool definitions (imported from `openai.types.chat`)
+
+All `*_TOOLS` lists must be typed as `list[ChatCompletionToolParam]` to ensure compatibility with the OpenAI SDK and enable proper type checking.
+
+**Important**: Always use the OpenAI SDK's types directly rather than creating custom TypedDict definitions. This ensures your code stays compatible as the SDK evolves.
 
 ### Adding New Tools
 
 To add a new tool:
 
 1. Implement the function in the appropriate module (or create new module for new category)
+   - Ensure proper type hints for parameters and return values
+   - Functions that return values must return on all code paths
+
 2. Add OpenAI tool definition to module's `*_TOOLS` list following the pattern:
    ```python
-   {
-       "type": "function",
-       "function": {
-           "name": "function_name",
-           "description": "What it does",
-           "parameters": {
-               "type": "object",
-               "properties": {
-                   "param_name": {
-                       "type": "string",
-                       "description": "Parameter description"
-                   }
-               },
-               "required": ["param_name"]
+   from .types import ChatCompletionToolParam
+
+   MY_TOOLS: list[ChatCompletionToolParam] = [
+       {
+           "type": "function",
+           "function": {
+               "name": "function_name",
+               "description": "What it does",
+               "parameters": {
+                   "type": "object",
+                   "properties": {
+                       "param_name": {
+                           "type": "string",
+                           "description": "Parameter description"
+                       }
+                   },
+                   "required": ["param_name"]
+               }
            }
        }
-   }
+   ]
    ```
-3. Register the function in `tool_router.py`'s `TOOL_REGISTRY` dictionary
-4. If new module: import and add to tool aggregation in `main.py`
+
+3. Register the function in [tool_router.py](src/hyperfocus_agent/tool_router.py)'s `TOOL_REGISTRY` dictionary
+
+4. If new module: import and add to tool aggregation in [main.py](src/hyperfocus_agent/main.py)
+
+**Important**: The type annotation `list[ChatCompletionToolParam]` is required for type safety. This ensures your tool definitions are compatible with the OpenAI SDK's type expectations.
 
 ### Important Design Decisions
 
@@ -99,6 +121,7 @@ src/hyperfocus_agent/
 ├── __init__.py          # Package interface, exports main()
 ├── main.py              # Entry point, LLM orchestration
 ├── tool_router.py       # Security layer, TOOL_REGISTRY, execution
+├── types.py             # TypedDict definitions for OpenAI schemas
 ├── directory_ops.py     # Directory tools + definitions
 ├── file_ops.py          # File tools + definitions
 └── utils.py             # Utility tools + definitions

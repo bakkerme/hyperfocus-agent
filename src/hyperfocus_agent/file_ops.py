@@ -1,4 +1,5 @@
 """File operations and related tool definitions."""
+from .types import ChatCompletionToolParam
 
 
 def read_file(path: str) -> str:
@@ -23,10 +24,7 @@ def append_to_file(path: str, content: str) -> str:
 
 
 # Tool definitions for file operations
-FILE_TOOLS = [
-    {
-        
-    },
+FILE_TOOLS: list[ChatCompletionToolParam] = [
     {
         "type": "function",
         "function": {

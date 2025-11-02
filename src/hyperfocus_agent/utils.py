@@ -1,13 +1,16 @@
 """Utility functions and related tool definitions."""
+from .types import ChatCompletionToolParam
 
 
 def say_hello(name: str) -> str:
     """Print a greeting message."""
-    print(f"Hello, {name}!")
+    message = f"Hello, {name}!"
+    print(message)
+    return message
 
 
 # Tool definitions for utility functions
-UTILITY_TOOLS = [
+UTILITY_TOOLS: list[ChatCompletionToolParam] = [
     {
         "type": "function",
         "function": {
