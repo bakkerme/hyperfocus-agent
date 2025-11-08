@@ -9,7 +9,7 @@ from .utils import UTILITY_TOOLS
 from .shell_ops import SHELL_TOOLS
 from .web_ops import WEB_TOOLS
 from .tool_router import execute_tool_calls
-from .agent import get_base_prompt
+from .agent import get_base_prompt, get_first_step_prompt
 from .llm_router import LLMRouter
 
 
@@ -64,7 +64,8 @@ def main():
     # Maintain the full conversation so the model can react to executed tools
     messages: list[ChatCompletionMessageParam] = [
         cast(ChatCompletionMessageParam, {"role": "system", "content": get_base_prompt()}),
-        cast(ChatCompletionMessageParam, {"role": "user", "content": user_message})
+        cast(ChatCompletionMessageParam, {"role": "user", "content": user_message}),
+        cast(ChatCompletionMessageParam, {"role": "system", "content": get_first_step_prompt()}),
     ]
     max_tool_iterations = int(os.getenv("LM_TOOL_CALL_ITERATIONS", "50"))
     iteration = 0
