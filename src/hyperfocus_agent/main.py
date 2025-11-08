@@ -7,6 +7,7 @@ from .directory_ops import DIRECTORY_TOOLS
 from .file_ops import FILE_TOOLS
 from .utils import UTILITY_TOOLS
 from .shell_ops import SHELL_TOOLS
+from .web_ops import WEB_TOOLS
 from .tool_router import execute_tool_calls
 from .agent import get_base_prompt
 
@@ -31,13 +32,13 @@ def main():
         print("Error: OPENAI_BASE_URL, OPENAI_API_KEY, and OPENAI_MODEL environment variables must be set.")
         return
 
-    print(f"Using base URL x: {base_url}")
+    print(f"Using base URL: {base_url}")
     print(f"Using model: {model}")
 
     client = OpenAI(base_url=base_url, api_key=api_key)
 
     # Combine all tool definitions
-    tools = UTILITY_TOOLS + DIRECTORY_TOOLS + FILE_TOOLS + SHELL_TOOLS
+    tools = UTILITY_TOOLS + DIRECTORY_TOOLS + FILE_TOOLS + SHELL_TOOLS + WEB_TOOLS
 
     # Maintain the full conversation so the model can react to executed tools
     messages: list[ChatCompletionMessageParam] = [
@@ -48,6 +49,7 @@ def main():
     iteration = 0
 
     while True:
+        print(f"\n Sending messages to model {messages}")
         response = client.chat.completions.create(
             model=model,
             messages=messages,
@@ -88,7 +90,7 @@ def main():
             else:
                 tool_content = f"Error: {result['error']}"
                 # print(f"✗ {result['function_name']}: {result['error']}")
-                print(f"✗ {result['function_name']}")
+                print(f"✗ {result['function_name']}: args: {result['arguments']}, error: {result['error']}")
 
             tool_message = cast(
                 ChatCompletionMessageParam,

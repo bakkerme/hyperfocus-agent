@@ -1,6 +1,8 @@
 """Tool routing system for securely mapping tool calls to function implementations."""
 import json
 from typing import Callable, Any, Dict
+
+from hyperfocus_agent.web_ops import readable_web_get
 from .directory_ops import (
     list_directory,
     get_current_directory,
@@ -13,6 +15,10 @@ from .file_ops import (
     append_to_file
 )
 from .shell_ops import execute_shell_command
+from .web_ops import (
+    readable_web_get,
+    raw_web_get
+)
 from .utils import say_hello
 
 
@@ -33,7 +39,11 @@ TOOL_REGISTRY: dict[str, Callable] = {
     "append_to_file": append_to_file,
 
     # Shell operations
-    "execute_shell_command": execute_shell_command
+    "execute_shell_command": execute_shell_command,
+
+    # Web operations
+    "readable_web_get": readable_web_get,
+    "raw_web_get": raw_web_get
 }
 
 
