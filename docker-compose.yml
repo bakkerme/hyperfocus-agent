@@ -5,9 +5,13 @@ services:
       dockerfile: docker/Dockerfile
     container_name: hyperfocus-test
     environment:
-      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-""}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-""}
-      OPENAI_MODEL: ${OPENAI_MODEL:-""}
+      LOCAL_OPENAI_BASE_URL: ${LOCAL_OPENAI_BASE_URL:-""}
+      LOCAL_OPENAI_API_KEY: ${LOCAL_OPENAI_API_KEY:-""}
+      LOCAL_OPENAI_MODEL: ${LOCAL_OPENAI_MODEL:-""}
+
+      REMOTE_OPENAI_BASE_URL: ${REMOTE_OPENAI_BASE_URL:-""}
+      REMOTE_OPENAI_API_KEY: ${REMOTE_OPENAI_API_KEY:-""}
+      REMOTE_OPENAI_MODEL: ${REMOTE_OPENAI_MODEL:-""}
     network_mode: "bridge"
     volumes:
       # Mount test fixtures
@@ -34,9 +38,13 @@ services:
       context: .
       dockerfile: docker/Dockerfile.dev
     environment:
-      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-""}
-      OPENAI_API_KEY: ${OPENAI_API_KEY:-""}
-      OPENAI_MODEL: ${OPENAI_MODEL:-""}
+      LOCAL_OPENAI_BASE_URL: ${LOCAL_OPENAI_BASE_URL:-""}
+      LOCAL_OPENAI_API_KEY: ${LOCAL_OPENAI_API_KEY:-""}
+      LOCAL_OPENAI_MODEL: ${LOCAL_OPENAI_MODEL:-""}
+
+      REMOTE_OPENAI_BASE_URL: ${REMOTE_OPENAI_BASE_URL:-""}
+      REMOTE_OPENAI_API_KEY: ${REMOTE_OPENAI_API_KEY:-""}
+      REMOTE_OPENAI_MODEL: ${REMOTE_OPENAI_MODEL:-""}
     volumes:
       # Mount source code read-write for live editing
       - ./src:/app/src:rw

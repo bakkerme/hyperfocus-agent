@@ -10,6 +10,7 @@ from .shell_ops import SHELL_TOOLS
 from .web_ops import WEB_TOOLS
 from .tool_router import execute_tool_calls
 from .agent import get_base_prompt
+from .llm_router import LLMRouter
 
 
 def parse_args():
@@ -23,19 +24,39 @@ def main():
     args = parse_args()
     user_message = " ".join(args.message)
 
-    # Connect to LM Studio (read from environment variables with defaults)
-    base_url = os.getenv("OPENAI_BASE_URL")
-    api_key = os.getenv("OPENAI_API_KEY")
-    model = os.getenv("OPENAI_MODEL")
+    # Connect to LLM (read from environment variables with defaults)
+    local_base_url = os.getenv("LOCAL_OPENAI_BASE_URL")
+    local_api_key = os.getenv("LOCAL_OPENAI_API_KEY")
+    local_model = os.getenv("LOCAL_OPENAI_MODEL")
 
-    if not base_url or not api_key or not model or base_url.strip() == "" or api_key.strip() == "" or model.strip() == "":
+    remote_url = os.getenv("REMOTE_OPENAI_BASE_URL")
+    remote_api_key = os.getenv("REMOTE_OPENAI_API_KEY")
+    remote_model = os.getenv("REMOTE_OPENAI_MODEL")
+
+    if not local_base_url or not local_api_key or not local_model or local_base_url.strip() == "" or local_api_key.strip() == "" or local_model.strip() == "":
         print("Error: OPENAI_BASE_URL, OPENAI_API_KEY, and OPENAI_MODEL environment variables must be set.")
         return
+    
+    if not remote_url or not remote_api_key or not remote_model or remote_url.strip() == "" or remote_api_key.strip() == "" or remote_model.strip() == "":
+        print("Error: REMOTE_OPENAI_BASE_URL, REMOTE_OPENAI_API_KEY, and REMOTE_OPENAI_MODEL environment variables must be set.")
+        return
 
-    print(f"Using base URL: {base_url}")
-    print(f"Using model: {model}")
+    print(f"Using local base URL: {local_base_url}")
+    print(f"Using local model: {local_model}")
 
-    client = OpenAI(base_url=base_url, api_key=api_key)
+    print(f"Using remote base URL: {remote_url}")
+    print(f"Using remote model: {remote_model}")
+
+    local_client = OpenAI(base_url=local_base_url, api_key=local_api_key)
+    remote_client = OpenAI(base_url=remote_url, api_key=remote_api_key)
+    
+    # Initialize the LLM router
+    llm_router = LLMRouter(
+        local_client=local_client,
+        remote_client=remote_client,
+        local_model=local_model,
+        remote_model=remote_model
+    )
 
     # Combine all tool definitions
     tools = UTILITY_TOOLS + DIRECTORY_TOOLS + FILE_TOOLS + SHELL_TOOLS + WEB_TOOLS
@@ -49,9 +70,8 @@ def main():
     iteration = 0
 
     while True:
-        print(f"\n Sending messages to model {messages}")
-        response = client.chat.completions.create(
-            model=model,
+        # print(f"\n Sending messages to model {messages}")
+        response = llm_router.complete(
             messages=messages,
             tools=tools
         )
