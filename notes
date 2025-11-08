@@ -1,0 +1,18 @@
+* Provide tools for web get and readibility
+* MCP support
+* Markdown parser and/or stripper
+* Task creation and management
+* Image use
+
+Router
+1. New config system for multiple LLMs and APIs, with roles
+2. Create router check system, where a message chain can be input into the router checker to see if it should activate
+3. These checks expose hooks, available prior to llm calls
+4. If a rule is true, we switch to that LLM
+
+MVP
+1. Create a remote llm and local llm config
+2. If message length goes beyond a configurable threshold, switch to remote
+
+Open Qs
+* Can we implement a hand-back feature, where the llm could optionally decide if it could crunch the context down?

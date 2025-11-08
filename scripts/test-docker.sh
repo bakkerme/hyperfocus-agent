@@ -26,12 +26,17 @@ Commands:
     rebuild     Clean, build, and run
     logs        Show container logs
 
+    assets-start    Start the asset server (serves test files on port 8080)
+    assets-stop     Stop the asset server
+    assets-logs     Show asset server logs
+
 Examples:
     $0 build                    # Build the test container
     $0 run                      # Run the agent in test mode
     $0 dev                      # Run in dev mode (live editing)
     $0 shell                    # Interactive shell for manual testing
     $0 clean                    # Clean up everything
+    $0 assets-start             # Start HTTP server for test assets
 
 Modes:
     test        Isolated testing with read-only source (production-like)
@@ -102,6 +107,29 @@ build_dev() {
     echo -e "${GREEN}Dev build complete!${NC}"
 }
 
+start_asset_server() {
+    echo -e "${GREEN}Starting asset server...${NC}"
+    echo -e "${YELLOW}Test files will be available at http://localhost:8080${NC}"
+    docker compose up -d asset-server
+    echo -e "${GREEN}Asset server started!${NC}"
+    echo -e "${YELLOW}Available files:${NC}"
+    echo "  - http://localhost:8080/example.txt"
+    echo "  - http://localhost:8080/data.json"
+    echo "  - http://localhost:8080/onirism.jpg"
+}
+
+stop_asset_server() {
+    echo -e "${YELLOW}Stopping asset server...${NC}"
+    docker compose stop asset-server
+    docker compose rm -f asset-server
+    echo -e "${GREEN}Asset server stopped!${NC}"
+}
+
+show_asset_logs() {
+    echo -e "${GREEN}Showing asset server logs...${NC}"
+    docker compose logs -f asset-server
+}
+
 # Main command handling
 case "${1:-}" in
     build)
@@ -133,6 +161,15 @@ case "${1:-}" in
         ;;
     logs)
         show_logs
+        ;;
+    assets-start)
+        start_asset_server
+        ;;
+    assets-stop)
+        stop_asset_server
+        ;;
+    assets-logs)
+        show_asset_logs
         ;;
     help|--help|-h)
         print_usage

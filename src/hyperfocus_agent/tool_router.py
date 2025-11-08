@@ -17,22 +17,18 @@ from .file_ops import (
 from .shell_ops import execute_shell_command
 from .web_ops import (
     readable_web_get,
-    raw_web_get
 )
-from .utils import say_hello
+from .image_ops import load_image
 
 
 # Registry mapping tool names to their actual function implementations
 TOOL_REGISTRY: dict[str, Callable] = {
-    # Utility functions
-    "say_hello": say_hello,
-    
     # Directory operations
     "list_directory": list_directory,
     "get_current_directory": get_current_directory,
     "change_directory": change_directory,
     "create_directory": create_directory,
-    
+
     # File operations
     "read_file": read_file,
     "create_file_with_content": create_file_with_content,
@@ -43,7 +39,9 @@ TOOL_REGISTRY: dict[str, Callable] = {
 
     # Web operations
     "readable_web_get": readable_web_get,
-    "raw_web_get": raw_web_get
+
+    # Image operations
+    "load_image": load_image
 }
 
 

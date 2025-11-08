@@ -8,22 +8,26 @@ from openai.types.chat import ChatCompletionMessageParam, ChatCompletion, ChatCo
 
 class LLMRouter:
     """Routes LLM requests between local and remote clients based on message length."""
-    
-    def __init__(self, local_client: OpenAI, remote_client: OpenAI, local_model: str, remote_model: str):
+
+    def __init__(self, local_client: OpenAI, remote_client: OpenAI, local_model: str, remote_model: str, multimodal_client: OpenAI | None = None, multimodal_model: str | None = None):
         """
         Initialize the LLM router.
-        
+
         Args:
             local_client: OpenAI client for local LLM
             remote_client: OpenAI client for remote LLM
             local_model: Model name for local LLM
             remote_model: Model name for remote LLM
+            multimodal_client: Optional OpenAI client for multi-modal (vision) LLM
+            multimodal_model: Optional model name for multi-modal LLM
         """
         self.local_client = local_client
         self.remote_client = remote_client
         self.local_model = local_model
         self.remote_model = remote_model
-        
+        self.multimodal_client = multimodal_client
+        self.multimodal_model = multimodal_model
+
         # Configurable threshold for switching to remote (in characters)
         # Default to 10,000 characters (~2,500 tokens roughly)
         self.message_length_threshold = int(os.getenv("LLM_ROUTER_THRESHOLD", "10000"))
@@ -43,11 +47,22 @@ class LLMRouter:
                             total_length += len(item.get("text", ""))
         return total_length
     
+    def _has_image_content(self, messages: List[ChatCompletionMessageParam]) -> bool:
+        """Check if any message contains image content."""
+        for message in messages:
+            content = message.get("content")
+            if isinstance(content, list):
+                for item in content:
+                    if isinstance(item, dict) and item.get("type") == "image_url":
+                        return True
+        return False
+
     def complete(
         self,
         messages: List[ChatCompletionMessageParam],
         tools: list | None = None,
-        stream: bool = False
+        stream: bool = False,
+        force_multimodal: bool = False
     ) -> ChatCompletion:
         """
         Route the completion request to local or remote LLM based on message length.
@@ -56,20 +71,29 @@ class LLMRouter:
             messages: List of chat messages
             tools: Optional list of tool definitions
             stream: Whether to stream the response (default: False)
+            force_multimodal: Force use of multi-modal model (for image analysis)
 
         Returns:
             ChatCompletion response from the selected LLM (assembled from stream if streaming)
         """
-        total_length = self._calculate_total_message_length(messages)
-
-        if total_length > self.message_length_threshold:
-            client = self.remote_client
-            model = self.remote_model
-            print(f"→ Using REMOTE LLM (message length: {total_length} > {self.message_length_threshold})")
+        # Check if we should use the multi-modal model
+        if force_multimodal or self._has_image_content(messages):
+            if self.multimodal_client is None or self.multimodal_model is None:
+                raise ValueError("Multi-modal model requested but not configured. Set MULTIMODAL_OPENAI_BASE_URL, MULTIMODAL_OPENAI_API_KEY, and MULTIMODAL_OPENAI_MODEL environment variables.")
+            client = self.multimodal_client
+            model = self.multimodal_model
+            print(f"→ Using MULTIMODAL LLM (image content detected)")
         else:
-            client = self.local_client
-            model = self.local_model
-            print(f"→ Using LOCAL LLM (message length: {total_length} ≤ {self.message_length_threshold})")
+            total_length = self._calculate_total_message_length(messages)
+
+            if total_length > self.message_length_threshold:
+                client = self.remote_client
+                model = self.remote_model
+                print(f"→ Using REMOTE LLM (message length: {total_length} > {self.message_length_threshold})")
+            else:
+                client = self.local_client
+                model = self.local_model
+                print(f"→ Using LOCAL LLM (message length: {total_length} ≤ {self.message_length_threshold})")
 
         kwargs = {"model": model, "messages": messages, "stream": stream}
         if tools is not None:

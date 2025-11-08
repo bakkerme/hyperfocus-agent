@@ -5,9 +5,9 @@ from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
 from .directory_ops import DIRECTORY_TOOLS
 from .file_ops import FILE_TOOLS
-from .utils import UTILITY_TOOLS
 from .shell_ops import SHELL_TOOLS
 from .web_ops import WEB_TOOLS
+from .image_ops import IMAGE_TOOLS
 from .tool_router import execute_tool_calls
 from .agent import get_base_prompt, get_first_step_prompt
 from .llm_router import LLMRouter
@@ -49,17 +49,30 @@ def main():
 
     local_client = OpenAI(base_url=local_base_url, api_key=local_api_key)
     remote_client = OpenAI(base_url=remote_url, api_key=remote_api_key)
-    
+
+    # Optional multi-modal client for vision capabilities
+    multimodal_url = os.getenv("MULTIMODAL_OPENAI_BASE_URL")
+    multimodal_api_key = os.getenv("MULTIMODAL_OPENAI_API_KEY")
+    multimodal_model = os.getenv("MULTIMODAL_OPENAI_MODEL")
+
+    multimodal_client = None
+    if multimodal_url and multimodal_api_key and multimodal_model:
+        multimodal_client = OpenAI(base_url=multimodal_url, api_key=multimodal_api_key)
+        print(f"Using multimodal base URL: {multimodal_url}")
+        print(f"Using multimodal model: {multimodal_model}")
+
     # Initialize the LLM router
     llm_router = LLMRouter(
         local_client=local_client,
         remote_client=remote_client,
         local_model=local_model,
-        remote_model=remote_model
+        remote_model=remote_model,
+        multimodal_client=multimodal_client,
+        multimodal_model=multimodal_model
     )
 
     # Combine all tool definitions
-    tools = UTILITY_TOOLS + DIRECTORY_TOOLS + FILE_TOOLS + SHELL_TOOLS + WEB_TOOLS
+    tools = DIRECTORY_TOOLS + FILE_TOOLS + SHELL_TOOLS + WEB_TOOLS + IMAGE_TOOLS
 
     # Maintain the full conversation so the model can react to executed tools
     messages: list[ChatCompletionMessageParam] = [
@@ -69,6 +82,8 @@ def main():
     ]
     max_tool_iterations = int(os.getenv("LM_TOOL_CALL_ITERATIONS", "50"))
     iteration = 0
+    # Track if we had an image in the previous iteration
+    had_image_last_iteration = False
 
     while True:
         # print(f"\n Sending messages to model {messages}")
@@ -103,26 +118,102 @@ def main():
 
         results = execute_tool_calls(tool_calls)
 
+        # Check if any of the results contain image data
+        has_image_this_iteration = False
+
+        # Store image data to be added after all tool messages
+        image_data_to_add = None
+
         for result in results:
             if result["success"]:
-                tool_content = str(result["result"])
-                # print(f"✓ {result['function_name']}: {tool_content}")
-                print(f"✓ {result['function_name']}: {result['arguments']}")
+                result_data = result["result"]
+
+                # Check if this is an image load result
+                if isinstance(result_data, dict) and result_data.get("use_multimodal"):
+                    has_image_this_iteration = True
+                    print(f"✓ {result['function_name']}: {result_data.get('message', 'Image loaded')}")
+
+                    # Store image data to add as a user message after tool messages
+                    image_data_to_add = result_data
+
+                    # Add a simple text tool response first
+                    tool_message = cast(
+                        ChatCompletionMessageParam,
+                        {
+                            "role": "tool",
+                            "tool_call_id": result["tool_call_id"],
+                            "content": result_data.get("message", "Image loaded successfully"),
+                        },
+                    )
+                    messages.append(tool_message)
+                else:
+                    tool_content = str(result_data)
+                    print(f"✓ {result['function_name']}: {result['arguments']}")
+
+                    tool_message = cast(
+                        ChatCompletionMessageParam,
+                        {
+                            "role": "tool",
+                            "tool_call_id": result["tool_call_id"],
+                            "content": tool_content,
+                        },
+                    )
+                    messages.append(tool_message)
             else:
                 tool_content = f"Error: {result['error']}"
-                # print(f"✗ {result['function_name']}: {result['error']}")
                 print(f"✗ {result['function_name']}: args: {result['arguments']}, error: {result['error']}")
 
-            tool_message = cast(
+                tool_message = cast(
+                    ChatCompletionMessageParam,
+                    {
+                        "role": "tool",
+                        "tool_call_id": result["tool_call_id"],
+                        "content": tool_content,
+                    },
+                )
+                messages.append(tool_message)
+
+        # If we have image data, add it as a user message with vision content
+        # This must come AFTER all tool messages
+        if image_data_to_add:
+            user_image_message = cast(
                 ChatCompletionMessageParam,
                 {
-                    "role": "tool",
-                    "tool_call_id": result["tool_call_id"],
-                    "content": tool_content,
-                },
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Please analyze this image."
+                        },
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:{image_data_to_add['mime_type']};base64,{image_data_to_add['base64_data']}"
+                            }
+                        }
+                    ]
+                }
             )
-            messages.append(tool_message)
+            messages.append(user_image_message)
 
+        # If we had an image last iteration but not this iteration,
+        # we need to remove image content from messages to avoid using multimodal model
+        if had_image_last_iteration and not has_image_this_iteration:
+            # Create a cleaned version of messages without image content
+            cleaned_messages = []
+            for msg in messages:
+                content = msg.get("content")
+                if isinstance(content, list):
+                    # Extract only text content, skip images
+                    text_parts = [item.get("text", "") for item in content if isinstance(item, dict) and item.get("type") == "text"]
+                    cleaned_msg = dict(msg)
+                    cleaned_msg["content"] = " ".join(text_parts) if text_parts else ""
+                    cleaned_messages.append(cast(ChatCompletionMessageParam, cleaned_msg))
+                else:
+                    cleaned_messages.append(msg)
+            messages = cleaned_messages
+
+        had_image_last_iteration = has_image_this_iteration
         iteration += 1
 
 if __name__ == "__main__":

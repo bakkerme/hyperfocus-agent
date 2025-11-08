@@ -1,9 +1,9 @@
 services:
-  hyperfocus-test:
+  hyperfocus:
     build:
       context: .
       dockerfile: docker/Dockerfile
-    container_name: hyperfocus-test
+    container_name: hyperfocus
     environment:
       LOCAL_OPENAI_BASE_URL: ${LOCAL_OPENAI_BASE_URL:-""}
       LOCAL_OPENAI_API_KEY: ${LOCAL_OPENAI_API_KEY:-""}
@@ -12,7 +12,12 @@ services:
       REMOTE_OPENAI_BASE_URL: ${REMOTE_OPENAI_BASE_URL:-""}
       REMOTE_OPENAI_API_KEY: ${REMOTE_OPENAI_API_KEY:-""}
       REMOTE_OPENAI_MODEL: ${REMOTE_OPENAI_MODEL:-""}
-    network_mode: "bridge"
+
+      MULTIMODAL_OPENAI_BASE_URL: ${MULTIMODAL_OPENAI_BASE_URL:-""}
+      MULTIMODAL_OPENAI_API_KEY: ${MULTIMODAL_OPENAI_API_KEY:-""}
+      MULTIMODAL_OPENAI_MODEL: ${MULTIMODAL_OPENAI_MODEL:-""}
+    networks:
+      - hyperfocus-net
     volumes:
       # Mount test fixtures
       - ./tests/fixtures:/workspace/fixtures:ro
@@ -32,7 +37,7 @@ services:
 
   # Dev mode: live code editing without rebuilds
   hyperfocus-dev:
-    extends: hyperfocus-test
+    extends: hyperfocus
     container_name: hyperfocus-dev
     build:
       context: .
@@ -45,6 +50,12 @@ services:
       REMOTE_OPENAI_BASE_URL: ${REMOTE_OPENAI_BASE_URL:-""}
       REMOTE_OPENAI_API_KEY: ${REMOTE_OPENAI_API_KEY:-""}
       REMOTE_OPENAI_MODEL: ${REMOTE_OPENAI_MODEL:-""}
+
+      MULTIMODAL_OPENAI_BASE_URL: ${MULTIMODAL_OPENAI_BASE_URL:-""}
+      MULTIMODAL_OPENAI_API_KEY: ${MULTIMODAL_OPENAI_API_KEY:-""}
+      MULTIMODAL_OPENAI_MODEL: ${MULTIMODAL_OPENAI_MODEL:-""}
+    networks:
+      - hyperfocus-net
     volumes:
       # Mount source code read-write for live editing
       - ./src:/app/src:rw
@@ -55,7 +66,24 @@ services:
       # Persistent workspace for agent operations
       - dev-workspace:/workspace/test_area
 
+  # Simple HTTP server for serving test assets
+  asset-server:
+    image: python:3.12-slim
+    container_name: hyperfocus-asset-server
+    working_dir: /assets
+    volumes:
+      - ./tests/fixtures/sample_files:/assets:ro
+    ports:
+      - "8080:8080"
+    command: python -m http.server 8080
+    networks:
+      - hyperfocus-net
+
 volumes:
   # Named volume for test workspace - isolated from host filesystem
   test-workspace:
   dev-workspace:
+
+networks:
+  hyperfocus-net:
+    driver: bridge
