@@ -1,0 +1,53 @@
+services:
+  hyperfocus-test:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: hyperfocus-test
+    environment:
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-""}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-""}
+      OPENAI_MODEL: ${OPENAI_MODEL:-""}
+    network_mode: "bridge"
+    volumes:
+      # Mount test fixtures
+      - ./tests/fixtures:/workspace/fixtures:ro
+      # Persistent workspace for agent operations (isolated from host)
+      - test-workspace:/workspace/test_area
+    stdin_open: true
+    tty: true
+    # Resource limits for safety
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Dev mode: live code editing without rebuilds
+  hyperfocus-dev:
+    extends: hyperfocus-test
+    container_name: hyperfocus-dev
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.dev
+    environment:
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-""}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-""}
+      OPENAI_MODEL: ${OPENAI_MODEL:-""}
+    volumes:
+      # Mount source code read-write for live editing
+      - ./src:/app/src:rw
+      # Mount pyproject.toml for package metadata
+      - ./pyproject.toml:/app/pyproject.toml:ro
+      # Mount test fixtures
+      - ./tests/fixtures:/workspace/fixtures:ro
+      # Persistent workspace for agent operations
+      - dev-workspace:/workspace/test_area
+
+volumes:
+  # Named volume for test workspace - isolated from host filesystem
+  test-workspace:
+  dev-workspace:

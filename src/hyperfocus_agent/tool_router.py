@@ -12,11 +12,12 @@ from .file_ops import (
     create_file_with_content,
     append_to_file
 )
+from .shell_ops import execute_shell_command
 from .utils import say_hello
 
 
 # Registry mapping tool names to their actual function implementations
-TOOL_REGISTRY: Dict[str, Callable] = {
+TOOL_REGISTRY: dict[str, Callable] = {
     # Utility functions
     "say_hello": say_hello,
     
@@ -30,6 +31,9 @@ TOOL_REGISTRY: Dict[str, Callable] = {
     "read_file": read_file,
     "create_file_with_content": create_file_with_content,
     "append_to_file": append_to_file,
+
+    # Shell operations
+    "execute_shell_command": execute_shell_command
 }
 
 
@@ -92,6 +96,7 @@ def execute_tool_calls(tool_calls) -> list:
             results.append({
                 "tool_call_id": tool_call.id,
                 "function_name": tool_call.function.name,
+                "arguments": tool_call.function.arguments,
                 "result": result,
                 "success": True
             })
@@ -99,6 +104,7 @@ def execute_tool_calls(tool_calls) -> list:
             results.append({
                 "tool_call_id": tool_call.id,
                 "function_name": tool_call.function.name,
+                "arguments": tool_call.function.arguments,
                 "error": str(e),
                 "success": False
             })
