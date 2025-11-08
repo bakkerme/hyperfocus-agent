@@ -73,7 +73,8 @@ def main():
         # print(f"\n Sending messages to model {messages}")
         response = llm_router.complete(
             messages=messages,
-            tools=tools
+            tools=tools,
+            stream=True
         )
 
         assistant_message = response.choices[0].message
@@ -88,9 +89,8 @@ def main():
 
         messages.append(assistant_message_dict)
 
-        assistant_content = assistant_message_dict.get("content")
-        if assistant_content:
-            print(assistant_content)
+        # Note: Content is already printed during streaming in llm_router._handle_streaming_response
+        # No need to print it again here
 
         tool_calls = assistant_message.tool_calls or []
         if not tool_calls:

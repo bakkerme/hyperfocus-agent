@@ -21,6 +21,7 @@ Commands:
     shell       Open a bash shell in the test container
     dev         Run in development mode (live code editing)
     dev-shell   Open shell in dev container
+    dev-prompt  Run dev container with custom prompt: $0 dev-prompt "Your prompt here"
     clean       Remove test container and volumes
     rebuild     Clean, build, and run
     logs        Show container logs
@@ -90,6 +91,11 @@ open_dev_shell() {
     docker compose run --rm hyperfocus-dev bash
 }
 
+run_dev_prompt() {
+    echo -e "${GREEN}Running hyperfocus-agent in DEV mode...${NC}"
+    docker compose run --rm hyperfocus-dev hyperfocus "${2}"
+}
+
 build_dev() {
     echo -e "${GREEN}Building dev container...${NC}"
     docker compose build hyperfocus-dev
@@ -115,6 +121,9 @@ case "${1:-}" in
         ;;
     dev-build)
         build_dev
+        ;;
+    dev-prompt)
+        run_dev_prompt "$@"
         ;;
     clean)
         clean_environment
