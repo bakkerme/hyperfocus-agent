@@ -182,10 +182,6 @@ def main():
                     "role": "user",
                     "content": [
                         {
-                            "type": "text",
-                            "text": "Please analyze this image."
-                        },
-                        {
                             "type": "image_url",
                             "image_url": {
                                 "url": f"data:{image_data_to_add['mime_type']};base64,{image_data_to_add['base64_data']}"
