@@ -8,9 +8,11 @@ from .file_ops import FILE_TOOLS
 from .shell_ops import SHELL_TOOLS
 from .web_ops import WEB_TOOLS
 from .image_ops import IMAGE_TOOLS
+from .task_ops import TASK_TOOLS
 from .tool_router import execute_tool_calls
 from .agent import get_base_prompt, get_first_step_prompt
 from .llm_router import LLMRouter
+from .task_executor import initialize_task_executor
 
 
 def parse_args():
@@ -71,8 +73,11 @@ def main():
         multimodal_model=multimodal_model
     )
 
+    # Initialize the task executor with the LLM router
+    initialize_task_executor(llm_router)
+
     # Combine all tool definitions
-    tools = DIRECTORY_TOOLS + FILE_TOOLS + SHELL_TOOLS + WEB_TOOLS + IMAGE_TOOLS
+    tools = DIRECTORY_TOOLS + FILE_TOOLS + SHELL_TOOLS + WEB_TOOLS + IMAGE_TOOLS + TASK_TOOLS
 
     # Maintain the full conversation so the model can react to executed tools
     messages: list[ChatCompletionMessageParam] = [

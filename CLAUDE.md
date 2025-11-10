@@ -46,9 +46,22 @@ The project uses a **whitelist-based tool execution architecture** with three la
 ### Module Responsibilities
 
 - **tool_router.py**: The security boundary - ALL tool execution goes through `TOOL_REGISTRY`
+  - Automatic large result detection and storage
+  - Configurable size threshold via `MAX_TOOL_RESULT_SIZE` env var
 - **directory_ops.py**: Directory operations (list, create, change, get current)
 - **file_ops.py**: File operations (read, create, append)
-- **utils.py**: Utility functions (say_hello demo)
+- **shell_ops.py**: Shell command execution
+- **web_ops.py**: Web scraping and HTTP operations
+- **image_ops.py**: Multi-modal image loading and processing
+- **task_ops.py**: Task execution system for processing large data
+  - `store_data_for_task()`: Store large data for processing
+  - `execute_simple_task()`: Run tasks in isolated LLM context
+  - `task_orientated_paging()`: Process large data in semantic chunks
+- **task_executor.py**: Core task execution engine
+  - Jina AI segmenter integration for intelligent chunking
+  - Fallback to simple line-based splitting
+  - Aggregation strategies: concatenate or summarize
+- **llm_router.py**: Intelligent routing between local/remote/multimodal LLMs
 - **types.py**: TypedDict definitions for OpenAI function calling schemas
 
 ### Type System
@@ -114,16 +127,58 @@ To add a new tool:
 
 **Error Isolation**: Tool router ensures one failed tool call doesn't break others - each call is isolated with comprehensive error handling.
 
+**Task System for Large Data**: When tool results exceed `MAX_TOOL_RESULT_SIZE` (default 20k chars):
+- Data is automatically stored with a generated ID
+- LLM receives guidance on how to process the large data
+- Available tools: `task_orientated_paging` for chunked processing, `execute_simple_task` for isolated execution
+- Uses Jina AI segmenter (if `JINA_API_KEY` set) for intelligent semantic chunking
+- Falls back to line-based splitting if Jina unavailable
+
+## Task System
+
+The task system enables processing data that exceeds context window limits. See [TASK_SYSTEM.md](TASK_SYSTEM.md) for detailed documentation.
+
+**Key Features:**
+- **Isolated execution**: Tasks run without chat history to save context
+- **Intelligent chunking**: Jina AI segmenter creates semantic chunks (optional)
+- **Automatic triggering**: Large tool results auto-trigger task storage
+- **Flexible aggregation**: Concatenate or summarize results across chunks
+
+**Workflow Example:**
+```python
+# 1. Agent reads large file (auto-stored if > 20k chars)
+read_file("large_log.txt") → Returns guidance with data_id
+
+# 2. Agent processes with task system
+task_orientated_paging(
+    data_id="read_file_abc123",
+    task="Extract all ERROR messages",
+    aggregation_strategy="summarize"
+)
+```
+
+**Configuration:**
+- `JINA_API_KEY`: Enable semantic chunking (recommended)
+- `MAX_TOOL_RESULT_SIZE`: Size threshold for auto-storage (default: 20000)
+- Task page size: Configurable per-call (default: 15000)
+
 ## Project Structure
 
 ```
 src/hyperfocus_agent/
 ├── __init__.py          # Package interface, exports main()
 ├── main.py              # Entry point, LLM orchestration
-├── tool_router.py       # Security layer, TOOL_REGISTRY, execution
+├── llm_router.py        # Routes between local/remote/multimodal LLMs
+├── tool_router.py       # Security layer, TOOL_REGISTRY, auto-storage
 ├── types.py             # TypedDict definitions for OpenAI schemas
+├── agent.py             # System prompts and agent configuration
 ├── directory_ops.py     # Directory tools + definitions
 ├── file_ops.py          # File tools + definitions
+├── shell_ops.py         # Shell command tools + definitions
+├── web_ops.py           # Web scraping tools + definitions
+├── image_ops.py         # Multi-modal image tools + definitions
+├── task_ops.py          # Task system tools + definitions
+├── task_executor.py     # Task execution engine with Jina integration
 └── utils.py             # Utility tools + definitions
 ```
 
@@ -131,4 +186,20 @@ src/hyperfocus_agent/
 
 - Python ^3.12 (requires 3.12+)
 - openai ^2.6.1 (OpenAI SDK for LM Studio API)
+- requests ^2.31.0 (HTTP library for web ops and Jina API)
 - Poetry for dependency management
+
+## Environment Variables
+
+See [.env.example](.env.example) for a complete list. Key variables:
+
+**Required:**
+- `LOCAL_OPENAI_BASE_URL`, `LOCAL_OPENAI_API_KEY`, `LOCAL_OPENAI_MODEL`
+- `REMOTE_OPENAI_BASE_URL`, `REMOTE_OPENAI_API_KEY`, `REMOTE_OPENAI_MODEL`
+
+**Optional:**
+- `JINA_API_KEY`: Enable semantic chunking (highly recommended)
+- `MULTIMODAL_OPENAI_*`: For vision/image processing capabilities
+- `MAX_TOOL_RESULT_SIZE`: Auto-storage threshold (default: 20000)
+- `LLM_ROUTER_THRESHOLD`: Switch to remote LLM threshold (default: 10000)
+- `LM_TOOL_CALL_ITERATIONS`: Max tool iterations (default: 50)

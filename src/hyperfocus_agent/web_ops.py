@@ -1,10 +1,16 @@
+import os
 import requests
 
 from .types import ChatCompletionToolParam
 
 def readable_web_get(url: str) -> str:
     """Fetch and return the content of a web page in an LLM-readable format, via jina.ai reader."""
-    response = requests.get(f"https://r.jina.ai/{url}")
+    headers = {}
+    jina_api_key = os.getenv("JINA_API_KEY")
+    if jina_api_key:
+        headers["Authorization"] = f"Bearer {jina_api_key}"
+    
+    response = requests.get(f"https://r.jina.ai/{url}", headers=headers)
     response.raise_for_status()
     return response.text
 

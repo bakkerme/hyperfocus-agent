@@ -16,6 +16,8 @@ services:
       MULTIMODAL_OPENAI_BASE_URL: ${MULTIMODAL_OPENAI_BASE_URL:-""}
       MULTIMODAL_OPENAI_API_KEY: ${MULTIMODAL_OPENAI_API_KEY:-""}
       MULTIMODAL_OPENAI_MODEL: ${MULTIMODAL_OPENAI_MODEL:-""}
+
+      JINA_API_KEY: ${JINA_API_KEY:-""}
     networks:
       - hyperfocus-net
     volumes:
@@ -54,6 +56,8 @@ services:
       MULTIMODAL_OPENAI_BASE_URL: ${MULTIMODAL_OPENAI_BASE_URL:-""}
       MULTIMODAL_OPENAI_API_KEY: ${MULTIMODAL_OPENAI_API_KEY:-""}
       MULTIMODAL_OPENAI_MODEL: ${MULTIMODAL_OPENAI_MODEL:-""}
+
+      JINA_API_KEY: ${JINA_API_KEY:-""}
     networks:
       - hyperfocus-net
     volumes:

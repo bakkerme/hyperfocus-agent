@@ -37,6 +37,3 @@ WORKDIR /app
 
 # Use entrypoint to install package in editable mode on startup
 ENTRYPOINT ["/entrypoint-dev.sh"]
-
-# Default command runs hyperfocus
-CMD ["hyperfocus"]
