@@ -1,18 +1,56 @@
-import os
 import requests
+from readability import Document
+import html2text
 
 from .types import ChatCompletionToolParam
 
+
 def readable_web_get(url: str) -> str:
-    """Fetch and return the content of a web page in an LLM-readable format, via jina.ai reader."""
-    headers = {}
-    jina_api_key = os.getenv("JINA_API_KEY")
-    if jina_api_key:
-        headers["Authorization"] = f"Bearer {jina_api_key}"
-    
-    response = requests.get(f"https://r.jina.ai/{url}", headers=headers)
+    """
+    Fetch and return the content of a web page in an LLM-readable format.
+
+    Pipeline:
+    1. Fetch raw HTML with requests
+    2. Extract main content with readability-lxml
+    3. Convert HTML to clean markdown with html2text
+
+    Args:
+        url: The URL to fetch
+
+    Returns:
+        Clean markdown text of the main content
+    """
+    # Step 1: Fetch raw HTML
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+    response = requests.get(url, headers=headers, timeout=30)
     response.raise_for_status()
-    return response.text
+
+    # Step 2: Extract main content with readability
+    doc = Document(response.text)
+    clean_html = doc.summary()
+
+    print(clean_html)
+
+    # Get the title as well
+    title = doc.title()
+
+    # Step 3: Convert to markdown
+    h = html2text.HTML2Text()
+    h.ignore_links = False
+    h.ignore_images = False
+    h.ignore_emphasis = False
+    h.body_width = 0  # Don't wrap lines
+
+    markdown_content = h.handle(clean_html)
+
+    # Combine title and content
+    result = f"# {title}\n\n{markdown_content}"
+
+    print(result)
+
+    return result
 
 # def raw_web_get(url: str) -> str:
 #     """Fetch and return the raw content of a web page."""

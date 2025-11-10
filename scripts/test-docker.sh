@@ -109,13 +109,13 @@ build_dev() {
 
 start_asset_server() {
     echo -e "${GREEN}Starting asset server...${NC}"
-    echo -e "${YELLOW}Test files will be available at http://localhost:8080${NC}"
+    echo -e "${YELLOW}Test files will be available at http://asset-server:8080${NC}"
     docker compose up -d asset-server
     echo -e "${GREEN}Asset server started!${NC}"
     echo -e "${YELLOW}Available files:${NC}"
-    echo "  - http://localhost:8080/example.txt"
-    echo "  - http://localhost:8080/data.json"
-    echo "  - http://localhost:8080/onirism.jpg"
+    echo "  - http://asset-server:8080/example.txt"
+    echo "  - http://asset-server:8080/data.json"
+    echo "  - http://asset-server:8080/onirism.jpg"
 }
 
 stop_asset_server() {

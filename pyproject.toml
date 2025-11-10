@@ -9,6 +9,8 @@ readme = "README.md"
 python = "^3.12"
 openai = "^2.6.1"
 requests = "^2.31.0"
+html2text = "^2025.4.15"
+readability-lxml = "^0.8.4.1"
 
 [build-system]
 requires = ["poetry-core"]

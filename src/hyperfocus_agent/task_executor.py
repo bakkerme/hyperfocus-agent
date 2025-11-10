@@ -1,7 +1,5 @@
 """Task execution system for running isolated LLM calls without chat history."""
 import os
-import requests
-import json
 from typing import Any, Dict, List
 from openai import OpenAI
 from openai.types.chat import ChatCompletionMessageParam
@@ -25,11 +23,6 @@ class TaskExecutor:
             llm_router: The LLMRouter instance to use for completions
         """
         self.llm_router = llm_router
-
-        # Jina AI configuration
-        self.jina_api_key = os.getenv("JINA_API_KEY", "")
-        self.jina_api_url = "https://api.jina.ai/v1/segment"
-        self.use_jina_segmenter = bool(self.jina_api_key)
 
     def execute_task(self, task_prompt: str, data: str) -> str:
         """
@@ -112,79 +105,7 @@ class TaskExecutor:
 
     def _split_into_pages(self, data: str, page_size: int) -> List[str]:
         """
-        Split data into pages using Jina AI's semantic segmenter API or fallback to simple splitting.
-
-        Args:
-            data: The text to split into pages
-            page_size: Maximum characters per page
-
-        Returns:
-            List of text chunks
-        """
-        if len(data) <= page_size:
-            return [data]
-
-        # Try using Jina AI segmenter if configured. Jina Segmenter has a 64k character limit.
-        if self.use_jina_segmenter and len(data) < 64000: 
-            try:
-                return self._split_with_jina(data, page_size)
-            except Exception as e:
-                print(f"⚠️  Jina segmenter failed ({e}), falling back to simple splitting")
-                # Fall through to simple splitting
-
-        # Fallback: Simple line-based splitting
-        return self._split_simple(data, page_size)
-
-    def _split_with_jina(self, data: str, max_chunk_length: int) -> List[str]:
-        """
-        Use Jina AI's segmenter API to intelligently split text into semantic chunks.
-
-        Args:
-            data: The text to segment
-            max_chunk_length: Maximum length per chunk
-
-        Returns:
-            List of semantically meaningful text chunks
-        """
-        headers = {
-            'Content-Type': 'application/json',
-            'Authorization': f'Bearer {self.jina_api_key}'
-        }
-
-        payload = {
-            "content": data,
-            "return_tokens": False,  # We don't need token info
-            "return_chunks": True,   # We want the chunks
-            "max_chunk_length": max_chunk_length
-        }
-
-        print(payload)
-
-        print(f"→ Using Jina AI segmenter (max chunk length: {max_chunk_length})")
-
-        response = requests.post(
-            self.jina_api_url,
-            headers=headers,
-            data=json.dumps(payload),
-            timeout=30
-        )
-
-        response.raise_for_status()
-        result = response.json()
-
-        # Extract chunks from the response
-        chunks = result.get("chunks", [])
-
-        if not chunks:
-            raise ValueError("Jina API returned no chunks")
-
-        print(f"→ Jina segmented into {len(chunks)} semantic chunks")
-
-        return chunks
-
-    def _split_simple(self, data: str, page_size: int) -> List[str]:
-        """
-        Simple fallback splitting that tries to split on newlines.
+        Split data into pages by splitting on newlines to avoid breaking mid-line.
 
         Args:
             data: The text to split
@@ -193,6 +114,9 @@ class TaskExecutor:
         Returns:
             List of text chunks
         """
+        if len(data) <= page_size:
+            return [data]
+
         pages = []
         lines = data.split('\n')
         current_page = []
