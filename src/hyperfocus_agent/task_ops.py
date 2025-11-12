@@ -1,9 +1,6 @@
 from .types import ChatCompletionToolParam
 from .task_executor import get_task_executor
-
-# In-memory storage for data that tasks will process
-# Key: data_id, Value: data content
-_data_store: dict[str, str] = {}
+from .data_store import store_data, retrieve_data, data_exists
 
 
 def store_data_for_task(data_id: str, data: str) -> str:
@@ -19,9 +16,13 @@ def store_data_for_task(data_id: str, data: str) -> str:
     Returns:
         Confirmation message
     """
-    _data_store[data_id] = data
-    data_size = len(data)
-    return f"Stored {data_size} characters of data with ID '{data_id}'. You can now run a task on this data."
+    result = store_data(
+        data_id=data_id,
+        content=data,
+        data_type="text",
+        metadata={"size": len(data)}
+    )
+    return result + f"\nYou can now run a task on this data using task_orientated_paging or execute_simple_task."
 
 
 def execute_simple_task(task_prompt: str, data: str) -> str:
@@ -56,10 +57,14 @@ def task_orientated_paging(data_id: str, task: str, page_size: int = 15000, aggr
         The aggregated result from processing all pages
     """
     # Retrieve the data
-    if data_id not in _data_store:
+    if not data_exists(data_id):
         return f"Error: No data found with ID '{data_id}'. Use store_data_for_task first."
 
-    data = _data_store[data_id]
+    data = retrieve_data(data_id)
+
+    # Ensure we have string data for paging
+    if not isinstance(data, str):
+        return f"Error: Data '{data_id}' is not text data (type: {type(data).__name__}). Task paging only works with text data."
 
     # Execute the task with paging
     executor = get_task_executor()

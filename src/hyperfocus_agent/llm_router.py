@@ -86,7 +86,7 @@ class LLMRouter:
         else:
             total_length = self._calculate_total_message_length(messages)
 
-            if total_length > self.message_length_threshold:
+            if False and total_length > self.message_length_threshold:
                 client = self.remote_client
                 model = self.remote_model
                 print(f"→ Using REMOTE LLM (message length: {total_length} > {self.message_length_threshold})")

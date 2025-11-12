@@ -19,6 +19,10 @@ from .file_ops import (
 from .shell_ops import execute_shell_command
 from .web_ops import (
     readable_web_get,
+    get_readable_web_section,
+    load_page_for_navigation,
+    extract_with_css,
+    extract_with_xpath,
 )
 from .image_ops import load_image
 from .task_ops import (
@@ -46,6 +50,10 @@ TOOL_REGISTRY: dict[str, Callable] = {
 
     # Web operations
     "readable_web_get": readable_web_get,
+    "get_readable_web_section": get_readable_web_section,
+    "load_page_for_navigation": load_page_for_navigation,
+    "extract_with_css": extract_with_css,
+    "extract_with_xpath": extract_with_xpath,
 
     # Image operations
     "load_image": load_image,

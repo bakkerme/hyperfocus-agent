@@ -1,3 +1,0 @@
-This is a sample text file for testing file operations.
-
-The hyperfocus-agent can read this file to test the read_file tool.

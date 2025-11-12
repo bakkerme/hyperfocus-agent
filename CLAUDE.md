@@ -134,6 +134,20 @@ To add a new tool:
 - Uses Jina AI segmenter (if `JINA_API_KEY` set) for intelligent semantic chunking
 - Falls back to line-based splitting if Jina unavailable
 
+## Data Store
+
+The project includes a generic data store ([data_store.py](src/hyperfocus_agent/data_store.py)) for maintaining state across tool calls. This enables:
+- **Stateful web scraping**: Load pages once, extract multiple times
+- **Task data storage**: Keep large data for task-based processing
+- **Cross-tool data sharing**: Any tool can store/retrieve data
+
+**Key Functions:**
+- `store_data(data_id, content, data_type, metadata)`: Store typed data with metadata
+- `retrieve_data(data_id)`: Retrieve stored content
+- `data_exists(data_id)`: Check if data exists
+- `get_data_info(data_id)`: Get metadata without content
+- `list_stored_data()`: List all stored data
+
 ## Task System
 
 The task system enables processing data that exceeds context window limits. See [TASK_SYSTEM.md](TASK_SYSTEM.md) for detailed documentation.
@@ -162,6 +176,42 @@ task_orientated_paging(
 - `MAX_TOOL_RESULT_SIZE`: Size threshold for auto-storage (default: 20000)
 - Task page size: Configurable per-call (default: 15000)
 
+## Web Scraping
+
+The project provides stateful web scraping capabilities for multi-step data extraction. See [WEB_SCRAPING.md](WEB_SCRAPING.md) for detailed documentation.
+
+**Three-tier approach:**
+1. **Simple**: `readable_web_get()` - Convert page to markdown
+2. **Analysis**: `get_dom_skeleton()` - Generate hyper-condensed DOM tree with headings
+3. **Stateful**: Load page → Design selectors → Extract with CSS/XPath
+
+**Workflow Example:**
+```python
+# 1. Load page and get DOM skeleton
+load_page_for_navigation("https://news.ycombinator.com", page_id="hn")
+
+# 2. Extract data with CSS selectors
+titles = extract_with_css(
+    page_id="hn",
+    selector="tr.athing td.title span.titleline a",
+    extract_type="text"
+)
+
+# 3. Extract with XPath for complex queries
+links = extract_with_xpath(
+    page_id="hn",
+    xpath="//tr[@class='athing']//a[@href]",
+    extract_type="attrs"
+)
+```
+
+**Key Features:**
+- **DOM Skeleton**: Hyper-condensed tree view with headings preserved
+- **Stateful**: Load once, extract multiple times (saves bandwidth/time)
+- **CSS & XPath**: Both selector types supported
+- **Multiple extract types**: text, html, or attributes
+- **Integration**: Works with task system for large extractions
+
 ## Project Structure
 
 ```
@@ -172,10 +222,11 @@ src/hyperfocus_agent/
 ├── tool_router.py       # Security layer, TOOL_REGISTRY, auto-storage
 ├── types.py             # TypedDict definitions for OpenAI schemas
 ├── agent.py             # System prompts and agent configuration
+├── data_store.py        # Generic in-memory data store for stateful operations
 ├── directory_ops.py     # Directory tools + definitions
 ├── file_ops.py          # File tools + definitions
 ├── shell_ops.py         # Shell command tools + definitions
-├── web_ops.py           # Web scraping tools + definitions
+├── web_ops.py           # Web scraping tools + definitions (DOM, CSS, XPath)
 ├── image_ops.py         # Multi-modal image tools + definitions
 ├── task_ops.py          # Task system tools + definitions
 ├── task_executor.py     # Task execution engine with Jina integration
@@ -187,6 +238,10 @@ src/hyperfocus_agent/
 - Python ^3.12 (requires 3.12+)
 - openai ^2.6.1 (OpenAI SDK for LM Studio API)
 - requests ^2.31.0 (HTTP library for web ops and Jina API)
+- beautifulsoup4 ^4.14.2 (HTML parsing for web scraping)
+- lxml ^6.0.2 (XML/HTML processing with XPath support)
+- html2text ^2025.4.15 (HTML to markdown conversion)
+- readability-lxml ^0.8.4.1 (Extract main content from pages)
 - Poetry for dependency management
 
 ## Environment Variables

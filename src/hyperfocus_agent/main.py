@@ -85,18 +85,21 @@ def main():
         cast(ChatCompletionMessageParam, {"role": "user", "content": user_message}),
         cast(ChatCompletionMessageParam, {"role": "system", "content": get_first_step_prompt()}),
     ]
-    max_tool_iterations = int(os.getenv("LM_TOOL_CALL_ITERATIONS", "50"))
+    max_tool_iterations = int(os.getenv("LM_TOOL_CALL_ITERATIONS", "500"))
     iteration = 0
     # Track if we had an image in the previous iteration
     had_image_last_iteration = False
+
+    should_stream = True
 
     while True:
         # print(f"\n Sending messages to model {messages}")
         response = llm_router.complete(
             messages=messages,
             tools=tools,
-            stream=True
+            stream=should_stream
         )
+
 
         assistant_message = response.choices[0].message
         assistant_message_dict = cast(
@@ -104,17 +107,18 @@ def main():
             assistant_message.model_dump()
         )
 
+        if not should_stream:
+            print(assistant_message.content)
+
         # Ensure the content field is always a string for the next round trip
         if assistant_message_dict.get("content") is None:
             assistant_message_dict["content"] = ""
 
         messages.append(assistant_message_dict)
 
-        # Note: Content is already printed during streaming in llm_router._handle_streaming_response
-        # No need to print it again here
-
         tool_calls = assistant_message.tool_calls or []
         if not tool_calls:
+            print("✓ tool_call_loop: no more tool calls, finishing execution")
             break
 
         if iteration >= max_tool_iterations:
@@ -154,6 +158,7 @@ def main():
                 else:
                     tool_content = str(result_data)
                     print(f"✓ {result['function_name']}: {result['arguments']}")
+                    print(tool_content)
 
                     tool_message = cast(
                         ChatCompletionMessageParam,

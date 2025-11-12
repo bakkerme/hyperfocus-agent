@@ -11,6 +11,9 @@ openai = "^2.6.1"
 requests = "^2.31.0"
 html2text = "^2025.4.15"
 readability-lxml = "^0.8.4.1"
+lxml = "^6.0.2"
+beautifulsoup4 = "^4.14.2"
+markdown-analysis = "^0.1.5"
 
 [build-system]
 requires = ["poetry-core"]
