@@ -221,23 +221,14 @@ def execute_tool_calls(tool_calls) -> list:
 
             # Handle standardized ToolResult format
             # Check if this is a ToolResult dict with 'data' field
-            if isinstance(result, dict) and "data" in result:
-                # New standardized format
-                include_in_context = result.get("include_in_context", True)
-                stub_message = result.get("stub_message", f"[{tool_call.function.name} result from previous iteration]")
-                result_data = result["data"]
-            elif isinstance(result, dict) and "include_in_context" in result:
-                # Old format with include_in_context but no data wrapper (backwards compat)
-                include_in_context = result["include_in_context"]
-                stub_message = f"[{tool_call.function.name} result from previous iteration]"
-                result_data = result
-            else:
-                # Legacy format - plain result without metadata
-                include_in_context = True
-                stub_message = f"[{tool_call.function.name} result from previous iteration]"
-                result_data = result
 
-            results.append({
+            # New standardized format
+            include_in_context = result.get("include_in_context", True)
+            stub_message = result.get("stub_message", f"[{tool_call.function.name} result from previous iteration]")
+            context_guidance = result.get("context_guidance")
+            result_data = result["data"]
+
+            result_dict = {
                 "tool_call_id": tool_call.id,
                 "function_name": tool_call.function.name,
                 "arguments": tool_call.function.arguments,
@@ -245,7 +236,13 @@ def execute_tool_calls(tool_calls) -> list:
                 "success": True,
                 "include_in_context": include_in_context,
                 "stub_message": stub_message
-            })
+            }
+
+            # Add context_guidance if provided
+            if context_guidance:
+                result_dict["context_guidance"] = context_guidance
+
+            results.append(result_dict)
         except Exception as e:
             results.append({
                 "tool_call_id": tool_call.id,

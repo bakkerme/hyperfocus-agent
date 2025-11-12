@@ -202,15 +202,23 @@ To retrieve this section later, use tool retrieve_stored_readable_web_section da
 
     return {
         "data": result_message,
-        "include_in_context": True
+        "include_in_context": False,
+        "stub_message": f"[Web section '{matched_heading['text']}' extracted - stored as {store_data_id}]",
+        "context_guidance": f"""Why excluded: The extracted markdown section is large and has been stored for efficient access.
+
+How to retrieve: Use retrieve_stored_readable_web_section(data_id="{store_data_id}") to get the full content again."""
     }
 
 def retrieve_stored_readable_web_section(data_id: str) -> ToolResult:
     data = retrieve_data(data_id)
     return {
-        "data": data,
-        "include_in_context": True
-    }
+            "data": data,
+            "include_in_context": False,
+            "stub_message": f"[Previously extracted web section retrieved - data_id: {data_id}]",
+            "context_guidance": f"""Why excluded: The extracted markdown section is large and has been stored for efficient access.
+
+    How to retrieve: Use retrieve_stored_readable_web_section(data_id="{data_id}") to get the full content again."""
+        }
 
 WEB_TOOLS: list[ChatCompletionToolParam] = [
     {

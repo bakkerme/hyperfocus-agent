@@ -1,7 +1,6 @@
 # Pick which LLM to use, local or remote
 import os
 import sys
-from typing import List
 from openai import OpenAI, Stream
 from openai.types.chat import ChatCompletionMessageParam, ChatCompletion, ChatCompletionChunk
 
@@ -32,7 +31,7 @@ class LLMRouter:
         # Default to 10,000 characters (~2,500 tokens roughly)
         self.message_length_threshold = int(os.getenv("LLM_ROUTER_THRESHOLD", "10000"))
     
-    def _calculate_total_message_length(self, messages: List[ChatCompletionMessageParam]) -> int:
+    def _calculate_total_message_length(self, messages: list[ChatCompletionMessageParam]) -> int:
         """Calculate the total character count of all message content."""
         total_length = 0
         for message in messages:
@@ -47,7 +46,7 @@ class LLMRouter:
                             total_length += len(item.get("text", ""))
         return total_length
     
-    def _has_image_content(self, messages: List[ChatCompletionMessageParam]) -> bool:
+    def _has_image_content(self, messages: list[ChatCompletionMessageParam]) -> bool:
         """Check if any message contains image content."""
         for message in messages:
             content = message.get("content")
@@ -59,7 +58,7 @@ class LLMRouter:
 
     def complete(
         self,
-        messages: List[ChatCompletionMessageParam],
+        messages: list[ChatCompletionMessageParam],
         tools: list | None = None,
         stream: bool = False,
         force_multimodal: bool = False
@@ -86,7 +85,7 @@ class LLMRouter:
         else:
             total_length = self._calculate_total_message_length(messages)
 
-            if False and total_length > self.message_length_threshold:
+            if total_length > self.message_length_threshold:
                 client = self.remote_client
                 model = self.remote_model
                 print(f"→ Using REMOTE LLM (message length: {total_length} > {self.message_length_threshold})")

@@ -105,15 +105,14 @@ def main():
 
     max_tool_iterations = int(os.getenv("LM_TOOL_CALL_ITERATIONS", "500"))
     iteration = 0
-    # Track if we had an image in the previous iteration
-    had_image_last_iteration = False
 
     should_stream = True
 
     while True:
         # Build the context for this LLM call
         # This converts the internal message history into the context to send
-        context = build_context(messages, tool_result_metadata)
+        # Only stub results from previous iterations (current iteration results should be shown in full)
+        context = build_context(messages, tool_result_metadata, current_iteration=iteration)
 
         response = llm_router.complete(
             messages=context,
@@ -152,11 +151,18 @@ def main():
 
         for result in results:
             # Store metadata for this tool result
-            tool_result_metadata[result["tool_call_id"]] = {
+            metadata = {
                 "include_in_context": result.get("include_in_context", True),
                 "function_name": result["function_name"],
-                "stub_message": result.get("stub_message", f"[{result['function_name']} result from previous iteration]")
+                "stub_message": result.get("stub_message", f"[{result['function_name']} result from previous iteration]"),
+                "created_at_iteration": iteration  # Track when this result was created
             }
+
+            # Add context_guidance if provided
+            if "context_guidance" in result:
+                metadata["context_guidance"] = result["context_guidance"]
+
+            tool_result_metadata[result["tool_call_id"]] = metadata
             if result["success"]:
                 result_data = result["result"]
 
@@ -181,7 +187,7 @@ def main():
                 else:
                     tool_content = str(result_data)
                     print(f"✓ {result['function_name']}: {result['arguments']}")
-                    print(tool_content)
+                    # print(tool_content)
 
                     tool_message = cast(
                         ChatCompletionMessageParam,

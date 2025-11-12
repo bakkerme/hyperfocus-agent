@@ -67,7 +67,11 @@ def load_image(file_path: str) -> ToolResult:
                 'message': f"Image loaded from {file_path}"
             },
             'include_in_context': False,  # Image data should not persist in context
-            'stub_message': f"[Image from {file_path} processed in previous iteration]"
+            'stub_message': f"[Image from {file_path} processed in previous iteration]",
+            'context_guidance': f"""Why excluded: Base64 image data is large and would consume significant context space.
+
+The image was already processed in a previous iteration with multimodal capabilities.
+To load and analyze this image again, call: load_image(file_path="{file_path}")"""
         }
     else:
         # Handle local file
@@ -86,16 +90,21 @@ def load_image(file_path: str) -> ToolResult:
             image_data = image_file.read()
             base64_data = base64.b64encode(image_data).decode('utf-8')
 
+        abs_path = str(path.absolute())
         return {
             'data': {
                 'base64_data': base64_data,
                 'mime_type': mime_types[extension],
-                'file_path': str(path.absolute()),
+                'file_path': abs_path,
                 'use_multimodal': True,
-                'message': f"Image loaded from {path.absolute()}"
+                'message': f"Image loaded from {abs_path}"
             },
             'include_in_context': False,  # Image data should not persist in context
-            'stub_message': f"[Image from {path.absolute()} processed in previous iteration]"
+            'stub_message': f"[Image from {abs_path} processed in previous iteration]",
+            'context_guidance': f"""Why excluded: Base64 image data is large and would consume significant context space.
+
+The image was already processed in a previous iteration with multimodal capabilities.
+To load and analyze this image again, call: load_image(file_path="{abs_path}")"""
         }
 
 

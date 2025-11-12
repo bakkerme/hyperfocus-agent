@@ -15,11 +15,13 @@ class ToolResult(TypedDict, total=False):
     - data: The actual result data for the LLM (required)
     - include_in_context: Whether to include this result in future context (optional, default: True)
     - stub_message: Custom message to show when excluded from context (optional)
+    - context_guidance: Explanation of why excluded and how to retrieve data (optional)
     - metadata: Additional metadata about the result (optional)
     """
     data: Any  # The actual result data for the LLM (required)
     include_in_context: bool  # Whether to keep in context (optional, defaults to True)
     stub_message: str  # Custom stub message when excluded (optional)
+    context_guidance: str  # Guidance on why excluded and how to retrieve (optional)
     metadata: dict[str, Any]  # Additional metadata (optional)
 
 
