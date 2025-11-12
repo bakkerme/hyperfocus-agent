@@ -1,31 +1,31 @@
-"""LangChain agent setup and creation.
+"""LangChain 1.0 agent setup and creation.
 
-This module contains the main agent factory that replaces the manual
-orchestration loop in the original main.py.
-
-Phase 1: Basic structure with placeholder tools
-Phase 2+: Full tool migration and middleware implementation
+This module contains the main agent factory using LangChain 1.0's create_agent API.
+Migrated from LangGraph's deprecated create_react_agent to the new langchain.agents
+API with middleware support.
 """
 import os
 from langchain_openai import ChatOpenAI
-from langgraph.prebuilt import create_react_agent
+from langchain.agents import create_agent
 from langgraph.checkpoint.memory import MemorySaver
 
 from .agent import get_base_prompt
-from .langchain_state import HyperfocusState
-from .langchain_middleware import initialize_models, select_llm_model
+from .langchain_state import HyperfocusState, HyperfocusContext
+from .langchain_middleware import (
+    initialize_models,
+    dynamic_model_selection,
+    inject_images_from_load_image,
+)
 
 
 def create_hyperfocus_agent():
-    """Create the Hyperfocus LangChain agent with all middleware and tools.
+    """Create the Hyperfocus LangChain 1.0 agent with all middleware and tools.
 
-    This replaces the manual orchestration loop in the original main.py.
-    The agent handles:
-    - Tool execution
-    - Message history management
-    - Context stubbing via middleware (Phase 2)
-    - LLM routing via middleware
-    - Iteration tracking via middleware (Phase 2)
+    This uses LangChain 1.0's create_agent API which provides:
+    - Built-in tool execution loop
+    - Middleware system for customization
+    - Dynamic model selection
+    - Message history management with checkpointing
 
     Returns:
         Configured LangChain agent ready to use
@@ -56,23 +56,26 @@ def create_hyperfocus_agent():
             "environment variables must be set."
         )
 
-    print(f"Initializing LangChain agent...")
+    print(f"Initializing LangChain 1.0 agent...")
     print(f"  Local: {local_base_url} / {local_model_name}")
     print(f"  Remote: {remote_base_url} / {remote_model_name}")
 
     # Initialize models using LangChain's ChatOpenAI
+    # Set reasonable max_tokens to avoid exceeding context limits
     local_model = ChatOpenAI(
         model=local_model_name,
         api_key=local_api_key,
         base_url=local_base_url,
-        temperature=0
+        temperature=0,
+        max_tokens=4096
     )
 
     remote_model = ChatOpenAI(
         model=remote_model_name,
         api_key=remote_api_key,
         base_url=remote_base_url,
-        temperature=0
+        temperature=0,
+        max_tokens=4096
     )
 
     # Optional multimodal model
@@ -83,92 +86,38 @@ def create_hyperfocus_agent():
             model=multimodal_model_name,
             api_key=multimodal_api_key,
             base_url=multimodal_base_url,
-            temperature=0
+            temperature=0,
+            max_tokens=2048
         )
 
     # Initialize global model references for middleware
     initialize_models(local_model, remote_model, multimodal_model)
 
-    # Phase 2: Import migrated tools
+    # Import migrated tools
     from .langchain_tools import ALL_TOOLS
 
     print(f"✓ Loaded {len(ALL_TOOLS)} tools")
 
-    # For LangGraph 0.3.x, we need to build a custom agent with model routing
-    # The prebuilt create_react_agent doesn't support dynamic model swapping
-    # We'll use a workaround: bind all three models with tools and select at runtime
+    # Get system prompt from agent module
+    system_prompt = get_base_prompt()
 
-    # Bind tools to all models
-    local_model_with_tools = local_model.bind_tools(ALL_TOOLS)
-    remote_model_with_tools = remote_model.bind_tools(ALL_TOOLS)
-    multimodal_model_with_tools = multimodal_model.bind_tools(ALL_TOOLS) if multimodal_model else None
-
-    # Create a routing node that selects the right model
-    from langgraph.graph import StateGraph, END
-    from langgraph.prebuilt import ToolNode
-
-    # Create tool node
-    tool_node = ToolNode(ALL_TOOLS)
-
-    # Define the call_model node with dynamic routing
-    def call_model(state: HyperfocusState):
-        """Call the appropriate model based on state."""
-        messages = state["messages"]
-
-        # Select model using our routing logic
-        state_dict = {"messages": messages}
-        selected_base_model = select_llm_model(state_dict)
-
-        # Find the corresponding model with tools bound
-        if multimodal_model and selected_base_model == multimodal_model:
-            model = multimodal_model_with_tools
-        elif selected_base_model == remote_model:
-            model = remote_model_with_tools
-        else:
-            model = local_model_with_tools
-
-        # Call the model
-        response = model.invoke(messages)
-        return {"messages": [response]}
-
-    # Define routing logic
-    def should_continue(state: HyperfocusState):
-        """Determine if we should continue or end."""
-        messages = state["messages"]
-        last_message = messages[-1]
-        # If there are no tool calls, we're done
-        if not hasattr(last_message, "tool_calls") or not last_message.tool_calls:
-            return "end"
-        return "continue"
-
-    # Build the graph
-    workflow = StateGraph(HyperfocusState)
-
-    # Add nodes
-    workflow.add_node("agent", call_model)
-    workflow.add_node("tools", tool_node)
-
-    # Set entry point
-    workflow.set_entry_point("agent")
-
-    # Add conditional edges
-    workflow.add_conditional_edges(
-        "agent",
-        should_continue,
-        {
-            "continue": "tools",
-            "end": END
-        }
+    # Create agent using LangChain 1.0 API
+    # Middleware order matters:
+    # 1. inject_images_from_load_image - Intercepts load_image and injects images
+    # 2. dynamic_model_selection - Routes to multimodal LLM when images detected
+    agent = create_agent(
+        model=local_model,  # Default model (will be overridden by middleware)
+        tools=ALL_TOOLS,
+        system_prompt=system_prompt,
+        state_schema=HyperfocusState,
+        context_schema=HyperfocusContext,
+        middleware=[inject_images_from_load_image, dynamic_model_selection],
+        checkpointer=MemorySaver(),
     )
 
-    # Add edge from tools back to agent
-    workflow.add_edge("tools", "agent")
-
-    # Compile the graph
-    agent = workflow.compile(checkpointer=MemorySaver())
-
-    print("✓ LangChain agent initialized successfully")
-    print("✓ Phase 3 complete - agent ready with migrated tools")
+    print("✓ LangChain 1.0 agent initialized successfully")
+    print("✓ Migrated to create_agent with middleware-based model routing")
+    print("✓ Multimodal image injection enabled via @wrap_tool_call middleware")
     return agent
 
 
@@ -181,6 +130,7 @@ def get_agent_config(thread_id: str = "cli-session") -> dict:
     Returns:
         Configuration dict for agent.invoke() or agent.stream()
     """
+    # LangChain 1.0 uses the same config structure
     return {
         "configurable": {
             "thread_id": thread_id

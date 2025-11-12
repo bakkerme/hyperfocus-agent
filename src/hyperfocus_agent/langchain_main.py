@@ -1,10 +1,11 @@
-"""LangChain-based main entry point for Hyperfocus Agent.
+"""LangChain 1.0 main entry point for Hyperfocus Agent.
 
-This is the new main entry point that uses LangChain/LangGraph instead of
-the manual orchestration loop in main.py.
+This is the main entry point that uses LangChain 1.0's create_agent API
+instead of the deprecated create_react_agent or manual orchestration.
 
 Usage:
     poetry run python -m hyperfocus_agent.langchain_main "your message here"
+    poetry run hyperfocus-lc "your message here"
 """
 import argparse
 import os
@@ -74,8 +75,8 @@ def main():
         print()
 
         # Invoke the agent
-        # Using invoke() for simpler output in Phase 3
-        # Phase 4 will add streaming
+        # Using invoke() for simpler output
+        # Note: LangChain 1.0 streaming node name is "model" (not "agent")
         result = agent.invoke(
             {"messages": [{"role": "user", "content": user_message}]},
             config=config

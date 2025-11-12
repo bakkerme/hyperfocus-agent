@@ -3,28 +3,29 @@
 This module defines the extended state schema that preserves all functionality
 from the original implementation while leveraging LangChain's state management.
 """
-from typing import Any
-from langgraph.prebuilt.chat_agent_executor import AgentState
+from typing import Any, TypedDict, Annotated
+from langchain_core.messages import BaseMessage
+from langgraph.graph import add_messages
 
 
-class HyperfocusState(AgentState):
+class HyperfocusState(TypedDict, total=False):
     """Extended agent state for Hyperfocus agent.
 
-    This state schema extends the base AgentState with custom fields needed
+    LangChain 1.0 requires state to be a TypedDict (not a class extending AgentState).
+    This state schema includes both the core messages field and custom fields needed
     to preserve the original behavior:
     - Iteration tracking for context stubbing
     - Tool result metadata for conditional context inclusion
     - Multimodal routing flags
     - Stored data for task execution
 
-    Note: AgentState already provides the 'messages' field, so we only need
-    to add our custom fields here. All custom fields have defaults to make
-    them optional.
+    Note: Using total=False makes all fields optional by default.
+    The 'messages' field uses the add_messages reducer for proper message handling.
     """
 
-    # Custom state fields for original functionality
-    # Note: TypedDict fields can't have defaults, but fields not listed in __required_keys__
-    # are automatically optional. These will be initialized in the agent invocation.
+    # Core messages field (required by LangChain agents)
+    # Annotated with add_messages for proper message list reduction
+    messages: Annotated[list[BaseMessage], add_messages]
 
     # Track which iteration we're on (for context stubbing logic)
     current_iteration: int
@@ -43,9 +44,10 @@ class HyperfocusState(AgentState):
     stored_data: dict[str, Any]
 
 
-class HyperfocusContext:
+class HyperfocusContext(TypedDict, total=False):
     """Runtime context for Hyperfocus agent.
 
+    LangChain 1.0 uses TypedDict for context as well.
     This would be used for things that don't change during a conversation
     but might vary between sessions (like user permissions, config, etc.).
     For now, keeping it minimal as most of our config comes from env vars.

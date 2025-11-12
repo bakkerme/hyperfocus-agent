@@ -18,15 +18,15 @@ def load_image(file_path: str) -> str:
     Supports both local file paths and remote URLs (http/https).
     Supported formats: JPEG, PNG, GIF, WebP.
 
-    NOTE: This tool currently returns metadata about the image. For full
-    multimodal analysis, the image needs to be manually added to messages
-    with image_url content. This will be enhanced in Phase 4.
+    The image will be automatically injected into the conversation for
+    multimodal analysis via middleware. The multimodal LLM will receive
+    the image content and can analyze it.
 
     Args:
         file_path: Path to the image file (local path or URL)
 
     Returns:
-        String response with image metadata and base64 data
+        Confirmation message that image was loaded successfully
     """
     mime_types = {
         '.jpg': 'image/jpeg',
@@ -81,17 +81,15 @@ def load_image(file_path: str) -> str:
             mime_type = mime_types[extension]
             display_path = str(path.absolute())
 
-        # For now, return metadata. Full multimodal requires the user to
-        # manually construct messages with image content.
-        # This will be enhanced in Phase 4 to automatically inject images.
+        # Return success message
+        # The middleware will automatically inject the image into the conversation
         return (
-            f"✓ Image loaded: {display_path}\n"
+            f"✓ Image loaded successfully: {display_path}\n"
             f"  Type: {mime_type}\n"
             f"  Size: {size_kb:.1f} KB\n"
-            f"  Base64 length: {len(base64_data)} chars\n"
             f"\n"
-            f"Note: Full multimodal analysis requires manual message construction.\n"
-            f"The image has been validated and is ready to use."
+            f"The image has been automatically injected into the conversation.\n"
+            f"You can now analyze it with the multimodal vision model."
         )
 
     except requests.RequestException as e:

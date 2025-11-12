@@ -19,10 +19,9 @@ markdown-analysis = "^0.1.5"
 arize-phoenix-otel = "^0.13.1"
 openinference-instrumentation-openai = "^0.1.40"
 # LangChain dependencies for migration - using 0.3.x for openai 2.x compatibility
-langchain = "^0.3.0"
-langchain-openai = "^0.3.0"
-langgraph = "^0.2.0"
-langgraph-checkpoint = "^2.0.0"
+langchain = "^1.0.5"
+langgraph = "^1.0.3"
+langchain-openai = "^1.0.2"
 
 [build-system]
 requires = ["poetry-core"]
