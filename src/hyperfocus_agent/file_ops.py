@@ -1,26 +1,35 @@
 """File operations and related tool definitions."""
-from .types import ChatCompletionToolParam
+from .types import ChatCompletionToolParam, ToolResult
 
 
-def read_file(path: str) -> str:
+def read_file(path: str) -> ToolResult:
     """Read and return the contents of a file."""
     with open(path, 'r') as f:
         content = f.read()
-    return content
+    return {
+        "data": content,
+        "include_in_context": True  # File contents should stay in context by default
+    }
 
 
-def create_file_with_content(path: str, content: str) -> str:
+def create_file_with_content(path: str, content: str) -> ToolResult:
     """Create a file at the specified path with the given content."""
     with open(path, 'w') as f:
         f.write(content)
-    return f"File '{path}' created with content."
+    return {
+        "data": f"File '{path}' created with content.",
+        "include_in_context": True
+    }
 
 
-def append_to_file(path: str, content: str) -> str:
+def append_to_file(path: str, content: str) -> ToolResult:
     """Append content to an existing file."""
     with open(path, 'a') as f:
         f.write(content)
-    return f"Content appended to file '{path}'."
+    return {
+        "data": f"Content appended to file '{path}'.",
+        "include_in_context": True
+    }
 
 
 # Tool definitions for file operations

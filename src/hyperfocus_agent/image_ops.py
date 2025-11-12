@@ -4,10 +4,10 @@ import os
 from pathlib import Path
 from urllib.parse import urlparse
 import requests
-from .types import ChatCompletionToolParam
+from .types import ChatCompletionToolParam, ToolResult
 
 
-def load_image(file_path: str) -> dict:
+def load_image(file_path: str) -> ToolResult:
     """
     Load an image file and return it in a format ready for multi-modal LLM processing.
 
@@ -19,11 +19,9 @@ def load_image(file_path: str) -> dict:
         file_path: Path to the image file (local path or URL)
 
     Returns:
-        A dictionary containing:
-        - base64_data: The base64-encoded image data
-        - mime_type: The MIME type of the image
-        - file_path: The original file path or URL
-        - use_multimodal: Flag to trigger multi-modal model switching
+        ToolResult containing image data and metadata:
+        - data: Dictionary with base64_data, mime_type, file_path, use_multimodal, message
+        - include_in_context: False (images should not persist in context)
 
     Raises:
         FileNotFoundError: If the local image file doesn't exist
@@ -61,11 +59,15 @@ def load_image(file_path: str) -> dict:
         
         base64_data = base64.b64encode(image_data).decode('utf-8')
         return {
-            'base64_data': base64_data,
-            'mime_type': mime_type,
-            'file_path': file_path,
-            'use_multimodal': True,
-            'message': f"Image loaded from {file_path}"
+            'data': {
+                'base64_data': base64_data,
+                'mime_type': mime_type,
+                'file_path': file_path,
+                'use_multimodal': True,
+                'message': f"Image loaded from {file_path}"
+            },
+            'include_in_context': False,  # Image data should not persist in context
+            'stub_message': f"[Image from {file_path} processed in previous iteration]"
         }
     else:
         # Handle local file
@@ -85,11 +87,15 @@ def load_image(file_path: str) -> dict:
             base64_data = base64.b64encode(image_data).decode('utf-8')
 
         return {
-            'base64_data': base64_data,
-            'mime_type': mime_types[extension],
-            'file_path': str(path.absolute()),
-            'use_multimodal': True,
-            'message': f"Image loaded from {path.absolute()}"
+            'data': {
+                'base64_data': base64_data,
+                'mime_type': mime_types[extension],
+                'file_path': str(path.absolute()),
+                'use_multimodal': True,
+                'message': f"Image loaded from {path.absolute()}"
+            },
+            'include_in_context': False,  # Image data should not persist in context
+            'stub_message': f"[Image from {path.absolute()} processed in previous iteration]"
         }
 
 

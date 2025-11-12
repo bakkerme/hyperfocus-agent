@@ -4,7 +4,6 @@ import os
 import hashlib
 from typing import Callable, Any
 
-from hyperfocus_agent.web_ops import readable_web_get
 from .directory_ops import (
     list_directory,
     get_current_directory,
@@ -20,9 +19,7 @@ from .shell_ops import execute_shell_command
 from .web_ops import (
     readable_web_get,
     get_readable_web_section,
-    load_page_for_navigation,
-    extract_with_css,
-    extract_with_xpath,
+    retrieve_stored_readable_web_section
 )
 from .image_ops import load_image
 from .task_ops import (
@@ -51,9 +48,7 @@ TOOL_REGISTRY: dict[str, Callable] = {
     # Web operations
     "readable_web_get": readable_web_get,
     "get_readable_web_section": get_readable_web_section,
-    "load_page_for_navigation": load_page_for_navigation,
-    "extract_with_css": extract_with_css,
-    "extract_with_xpath": extract_with_xpath,
+    "retrieve_stored_readable_web_section": retrieve_stored_readable_web_section,
 
     # Image operations
     "load_image": load_image,
@@ -204,23 +199,52 @@ def execute_tool_call(tool_call) -> Any:
 def execute_tool_calls(tool_calls) -> list:
     """
     Execute multiple tool calls and return their results.
-    
+
     Args:
         tool_calls: List of tool call objects from the LLM response
-        
+
     Returns:
-        List of results from executing each tool call
+        List of results from executing each tool call. Each result includes:
+        - tool_call_id: ID of the tool call
+        - function_name: Name of the function executed
+        - arguments: JSON string of arguments
+        - result: The result data (if success=True)
+        - error: Error message (if success=False)
+        - success: Whether execution succeeded
+        - include_in_context: Whether to include full result in next context (default: True)
+        - stub_message: Custom message when excluded from context (optional)
     """
     results = []
     for tool_call in tool_calls:
         try:
             result = execute_tool_call(tool_call)
+
+            # Handle standardized ToolResult format
+            # Check if this is a ToolResult dict with 'data' field
+            if isinstance(result, dict) and "data" in result:
+                # New standardized format
+                include_in_context = result.get("include_in_context", True)
+                stub_message = result.get("stub_message", f"[{tool_call.function.name} result from previous iteration]")
+                result_data = result["data"]
+            elif isinstance(result, dict) and "include_in_context" in result:
+                # Old format with include_in_context but no data wrapper (backwards compat)
+                include_in_context = result["include_in_context"]
+                stub_message = f"[{tool_call.function.name} result from previous iteration]"
+                result_data = result
+            else:
+                # Legacy format - plain result without metadata
+                include_in_context = True
+                stub_message = f"[{tool_call.function.name} result from previous iteration]"
+                result_data = result
+
             results.append({
                 "tool_call_id": tool_call.id,
                 "function_name": tool_call.function.name,
                 "arguments": tool_call.function.arguments,
-                "result": result,
-                "success": True
+                "result": result_data,
+                "success": True,
+                "include_in_context": include_in_context,
+                "stub_message": stub_message
             })
         except Exception as e:
             results.append({
@@ -228,6 +252,8 @@ def execute_tool_calls(tool_calls) -> list:
                 "function_name": tool_call.function.name,
                 "arguments": tool_call.function.arguments,
                 "error": str(e),
-                "success": False
+                "success": False,
+                "include_in_context": True,  # Always include errors in context
+                "stub_message": f"[Error from {tool_call.function.name}]"
             })
     return results

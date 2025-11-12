@@ -1,9 +1,9 @@
-from .types import ChatCompletionToolParam
+from .types import ChatCompletionToolParam, ToolResult
 from .task_executor import get_task_executor
 from .data_store import store_data, retrieve_data, data_exists
 
 
-def store_data_for_task(data_id: str, data: str) -> str:
+def store_data_for_task(data_id: str, data: str) -> ToolResult:
     """
     Store data in memory to be processed by a task later.
     This allows the LLM to load large data (e.g., from a file) and then
@@ -22,10 +22,14 @@ def store_data_for_task(data_id: str, data: str) -> str:
         data_type="text",
         metadata={"size": len(data)}
     )
-    return result + f"\nYou can now run a task on this data using task_orientated_paging or execute_simple_task."
+    message = result + f"\nYou can now run a task on this data using task_orientated_paging or execute_simple_task."
+    return {
+        "data": message,
+        "include_in_context": True
+    }
 
 
-def execute_simple_task(task_prompt: str, data: str) -> str:
+def execute_simple_task(task_prompt: str, data: str) -> ToolResult:
     """
     Execute a simple task on the provided data without paging.
     The task runs in an isolated LLM context without chat history.
@@ -39,10 +43,13 @@ def execute_simple_task(task_prompt: str, data: str) -> str:
     """
     executor = get_task_executor()
     result = executor.execute_task(task_prompt, data)
-    return result
+    return {
+        "data": result,
+        "include_in_context": True
+    }
 
 
-def task_orientated_paging(data_id: str, task: str, page_size: int = 15000, aggregation_strategy: str = "concatenate") -> str:
+def task_orientated_paging(data_id: str, task: str, page_size: int = 15000, aggregation_strategy: str = "concatenate") -> ToolResult:
     """
     Execute a task on stored data using paging for large datasets.
     The data is split into pages and processed separately, then results are aggregated.
@@ -58,13 +65,19 @@ def task_orientated_paging(data_id: str, task: str, page_size: int = 15000, aggr
     """
     # Retrieve the data
     if not data_exists(data_id):
-        return f"Error: No data found with ID '{data_id}'. Use store_data_for_task first."
+        return {
+            "data": f"Error: No data found with ID '{data_id}'. Use store_data_for_task first.",
+            "include_in_context": True
+        }
 
     data = retrieve_data(data_id)
 
     # Ensure we have string data for paging
     if not isinstance(data, str):
-        return f"Error: Data '{data_id}' is not text data (type: {type(data).__name__}). Task paging only works with text data."
+        return {
+            "data": f"Error: Data '{data_id}' is not text data (type: {type(data).__name__}). Task paging only works with text data.",
+            "include_in_context": True
+        }
 
     # Execute the task with paging
     executor = get_task_executor()
@@ -75,7 +88,10 @@ def task_orientated_paging(data_id: str, task: str, page_size: int = 15000, aggr
         aggregation_strategy=aggregation_strategy
     )
 
-    return result
+    return {
+        "data": result,
+        "include_in_context": True
+    }
 
 
 # Tool definitions for task operations

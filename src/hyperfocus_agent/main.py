@@ -11,6 +11,7 @@ from .tool_router import execute_tool_calls
 from .agent import get_base_prompt, get_first_step_prompt
 from .llm_router import LLMRouter
 from .task_executor import initialize_task_executor
+from .context_builder import build_context
 
 # Phoenix observability
 from phoenix.otel import register
@@ -92,12 +93,16 @@ def main():
     # Combine all tool definitions
     tools = DIRECTORY_TOOLS + FILE_TOOLS + SHELL_TOOLS + WEB_TOOLS + IMAGE_TOOLS + TASK_TOOLS
 
-    # Maintain the full conversation so the model can react to executed tools
+    # Maintain the full internal conversation history
     messages: list[ChatCompletionMessageParam] = [
         cast(ChatCompletionMessageParam, {"role": "system", "content": get_base_prompt()}),
         cast(ChatCompletionMessageParam, {"role": "user", "content": user_message}),
         # cast(ChatCompletionMessageParam, {"role": "system", "content": get_first_step_prompt()}),
     ]
+
+    # Track metadata for tool results to control context inclusion
+    tool_result_metadata: dict[str, dict] = {}
+
     max_tool_iterations = int(os.getenv("LM_TOOL_CALL_ITERATIONS", "500"))
     iteration = 0
     # Track if we had an image in the previous iteration
@@ -106,12 +111,15 @@ def main():
     should_stream = True
 
     while True:
+        # Build the context for this LLM call
+        # This converts the internal message history into the context to send
+        context = build_context(messages, tool_result_metadata)
+
         response = llm_router.complete(
-            messages=messages,
+            messages=context,
             tools=tools,
             stream=should_stream
         )
-
 
         assistant_message = response.choices[0].message
         assistant_message_dict = cast(
@@ -139,13 +147,16 @@ def main():
 
         results = execute_tool_calls(tool_calls)
 
-        # Check if any of the results contain image data
-        has_image_this_iteration = False
-
         # Store image data to be added after all tool messages
         image_data_to_add = None
 
         for result in results:
+            # Store metadata for this tool result
+            tool_result_metadata[result["tool_call_id"]] = {
+                "include_in_context": result.get("include_in_context", True),
+                "function_name": result["function_name"],
+                "stub_message": result.get("stub_message", f"[{result['function_name']} result from previous iteration]")
+            }
             if result["success"]:
                 result_data = result["result"]
 
@@ -213,25 +224,6 @@ def main():
                 }
             )
             messages.append(user_image_message)
-
-        # If we had an image last iteration but not this iteration,
-        # we need to remove image content from messages to avoid using multimodal model
-        if had_image_last_iteration and not has_image_this_iteration:
-            # Create a cleaned version of messages without image content
-            cleaned_messages = []
-            for msg in messages:
-                content = msg.get("content")
-                if isinstance(content, list):
-                    # Extract only text content, skip images
-                    text_parts = [item.get("text", "") for item in content if isinstance(item, dict) and item.get("type") == "text"]
-                    cleaned_msg = dict(msg)
-                    cleaned_msg["content"] = " ".join(text_parts) if text_parts else ""
-                    cleaned_messages.append(cast(ChatCompletionMessageParam, cleaned_msg))
-                else:
-                    cleaned_messages.append(msg)
-            messages = cleaned_messages
-
-        had_image_last_iteration = has_image_this_iteration
         iteration += 1
 
 if __name__ == "__main__":

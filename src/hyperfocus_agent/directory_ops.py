@@ -1,28 +1,42 @@
 """Directory operations and related tool definitions."""
 import os
-from .types import ChatCompletionToolParam
+from .types import ChatCompletionToolParam, ToolResult
 
 
-def list_directory(path: str) -> list:
+def list_directory(path: str) -> ToolResult:
     """List all files and directories in the specified path."""
-    return os.listdir(path)
+    listing = os.listdir(path)
+    return {
+        "data": listing,
+        "include_in_context": True
+    }
 
 
-def get_current_directory() -> str:
+def get_current_directory() -> ToolResult:
     """Get the current working directory."""
-    return os.getcwd()
+    cwd = os.getcwd()
+    return {
+        "data": cwd,
+        "include_in_context": True
+    }
 
 
-def change_directory(path: str) -> str:
+def change_directory(path: str) -> ToolResult:
     """Change the current working directory."""
     os.chdir(path)
-    return f"Changed current directory to '{path}'."
+    return {
+        "data": f"Changed current directory to '{path}'.",
+        "include_in_context": True
+    }
 
 
-def create_directory(path: str) -> str:
+def create_directory(path: str) -> ToolResult:
     """Create a directory at the specified path."""
     os.makedirs(path, exist_ok=True)
-    return f"Directory '{path}' created."
+    return {
+        "data": f"Directory '{path}' created.",
+        "include_in_context": True
+    }
 
 
 # Tool definitions for directory operations
