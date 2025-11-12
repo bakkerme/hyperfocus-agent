@@ -101,7 +101,7 @@ services:
     container_name: hyperfocus-asset-server
     working_dir: /assets
     volumes:
-      - ./tests/fixtures/sample_files:/assets:ro
+      - ./workspace/sample_files:/assets:ro
       - ./docker/utf8_server.py:/usr/local/bin/utf8_server.py:ro
     ports:
       - "8080:8080"
