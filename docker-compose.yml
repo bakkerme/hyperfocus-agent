@@ -74,7 +74,7 @@ services:
       # Mount test fixtures
       - ./tests/fixtures:/workspace/fixtures:ro
       # Persistent workspace for agent operations
-      - dev-workspace:/workspace/test_area
+      - ./workspace/test_area:/workspace/test_area
 
   # Phoenix observability server
   phoenix:
