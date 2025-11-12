@@ -70,16 +70,17 @@ services:
       # Persistent workspace for agent operations
       - dev-workspace:/workspace/test_area
 
-  # Simple HTTP server for serving test assets
+  # Simple HTTP server for serving test assets with proper UTF-8 encoding
   asset-server:
     image: python:3.12-slim
     container_name: hyperfocus-asset-server
     working_dir: /assets
     volumes:
       - ./tests/fixtures/sample_files:/assets:ro
+      - ./docker/utf8_server.py:/usr/local/bin/utf8_server.py:ro
     ports:
       - "8080:8080"
-    command: python -m http.server 8080
+    command: python /usr/local/bin/utf8_server.py 8080
     networks:
       - hyperfocus-net
 
