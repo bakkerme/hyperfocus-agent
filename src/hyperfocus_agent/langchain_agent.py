@@ -94,14 +94,78 @@ def create_hyperfocus_agent():
 
     print(f"✓ Loaded {len(ALL_TOOLS)} tools")
 
-    # Create the agent using LangGraph's prebuilt create_react_agent
-    # This handles the tool calling loop automatically
-    agent = create_react_agent(
-        model=local_model,  # Default model (middleware will swap as needed)
-        tools=ALL_TOOLS,
-        checkpointer=MemorySaver(),  # In-memory state management
-        state_schema=HyperfocusState  # Our custom state extending AgentState
+    # For LangGraph 0.3.x, we need to build a custom agent with model routing
+    # The prebuilt create_react_agent doesn't support dynamic model swapping
+    # We'll use a workaround: bind all three models with tools and select at runtime
+
+    # Bind tools to all models
+    local_model_with_tools = local_model.bind_tools(ALL_TOOLS)
+    remote_model_with_tools = remote_model.bind_tools(ALL_TOOLS)
+    multimodal_model_with_tools = multimodal_model.bind_tools(ALL_TOOLS) if multimodal_model else None
+
+    # Create a routing node that selects the right model
+    from langgraph.graph import StateGraph, END
+    from langgraph.prebuilt import ToolNode
+
+    # Create tool node
+    tool_node = ToolNode(ALL_TOOLS)
+
+    # Define the call_model node with dynamic routing
+    def call_model(state: HyperfocusState):
+        """Call the appropriate model based on state."""
+        messages = state["messages"]
+
+        # Select model using our routing logic
+        state_dict = {"messages": messages}
+        selected_base_model = select_llm_model(state_dict)
+
+        # Find the corresponding model with tools bound
+        if multimodal_model and selected_base_model == multimodal_model:
+            model = multimodal_model_with_tools
+        elif selected_base_model == remote_model:
+            model = remote_model_with_tools
+        else:
+            model = local_model_with_tools
+
+        # Call the model
+        response = model.invoke(messages)
+        return {"messages": [response]}
+
+    # Define routing logic
+    def should_continue(state: HyperfocusState):
+        """Determine if we should continue or end."""
+        messages = state["messages"]
+        last_message = messages[-1]
+        # If there are no tool calls, we're done
+        if not hasattr(last_message, "tool_calls") or not last_message.tool_calls:
+            return "end"
+        return "continue"
+
+    # Build the graph
+    workflow = StateGraph(HyperfocusState)
+
+    # Add nodes
+    workflow.add_node("agent", call_model)
+    workflow.add_node("tools", tool_node)
+
+    # Set entry point
+    workflow.set_entry_point("agent")
+
+    # Add conditional edges
+    workflow.add_conditional_edges(
+        "agent",
+        should_continue,
+        {
+            "continue": "tools",
+            "end": END
+        }
     )
+
+    # Add edge from tools back to agent
+    workflow.add_edge("tools", "agent")
+
+    # Compile the graph
+    agent = workflow.compile(checkpointer=MemorySaver())
 
     print("✓ LangChain agent initialized successfully")
     print("✓ Phase 3 complete - agent ready with migrated tools")
