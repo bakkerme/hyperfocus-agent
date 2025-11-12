@@ -26,6 +26,10 @@ Commands:
     rebuild     Clean, build, and run
     logs        Show container logs
 
+    phoenix-start   Start Phoenix observability server (UI on port 6006)
+    phoenix-stop    Stop Phoenix server
+    phoenix-logs    Show Phoenix server logs
+
     assets-start    Start the asset server (serves test files on port 8080)
     assets-stop     Stop the asset server
     assets-logs     Show asset server logs
@@ -36,6 +40,7 @@ Examples:
     $0 dev                      # Run in dev mode (live editing)
     $0 shell                    # Interactive shell for manual testing
     $0 clean                    # Clean up everything
+    $0 phoenix-start            # Start Phoenix observability UI
     $0 assets-start             # Start HTTP server for test assets
 
 Modes:
@@ -55,14 +60,14 @@ build_container() {
 run_agent() {
     echo -e "${GREEN}Running hyperfocus-agent in test container...${NC}"
     echo -e "${YELLOW}Agent will execute in isolated environment at /workspace/test_area${NC}"
-    docker compose run --rm hyperfocus-test /bin/bash -c "hyperfocus '${TEST_PROMPT}'"
+    docker compose run --rm --service-ports hyperfocus-test /bin/bash -c "hyperfocus '${TEST_PROMPT}'"
 }
 
 open_shell() {
     echo -e "${GREEN}Opening shell in test container...${NC}"
     echo -e "${YELLOW}Working directory: /workspace/test_area${NC}"
     echo -e "${YELLOW}Test fixtures available at: /workspace/fixtures${NC}"
-    docker compose run --rm hyperfocus-test /bin/bash
+    docker compose run --rm --service-ports hyperfocus-test /bin/bash
 }
 
 clean_environment() {
@@ -85,7 +90,7 @@ run_dev() {
     echo -e "${GREEN}Running hyperfocus-agent in DEV mode...${NC}"
     echo -e "${YELLOW}Source code changes will reflect immediately (no rebuild needed)${NC}"
     echo -e "${YELLOW}Edit files in ./src/ and they'll update live in the container${NC}"
-    docker compose run --rm hyperfocus-dev hyperfocus "${TEST_PROMPT}"
+    docker compose run --rm --service-ports hyperfocus-dev hyperfocus "${TEST_PROMPT}"
 }
 
 open_dev_shell() {
@@ -93,12 +98,12 @@ open_dev_shell() {
     echo -e "${YELLOW}Source is mounted read-write at /app/src${NC}"
     echo -e "${YELLOW}Working directory: /app${NC}"
     echo -e "${YELLOW}Note: Package is installed in editable mode on startup${NC}"
-    docker compose run --rm hyperfocus-dev bash
+    docker compose run --rm --service-ports hyperfocus-dev bash
 }
 
 run_dev_prompt() {
     echo -e "${GREEN}Running hyperfocus-agent in DEV mode...${NC}"
-    docker compose run --rm hyperfocus-dev hyperfocus "${2}"
+    docker compose run --rm --service-ports hyperfocus-dev hyperfocus "${2}"
 }
 
 build_dev() {
@@ -128,6 +133,28 @@ stop_asset_server() {
 show_asset_logs() {
     echo -e "${GREEN}Showing asset server logs...${NC}"
     docker compose logs -f asset-server
+}
+
+start_phoenix() {
+    echo -e "${GREEN}Starting Phoenix observability server...${NC}"
+    echo -e "${YELLOW}Phoenix UI will be available at http://localhost:6006${NC}"
+    docker compose up -d phoenix
+    echo -e "${GREEN}Phoenix server started!${NC}"
+    echo -e "${YELLOW}Waiting for Phoenix to be ready...${NC}"
+    sleep 3
+    echo -e "${GREEN}Phoenix is ready at http://localhost:6006${NC}"
+}
+
+stop_phoenix() {
+    echo -e "${YELLOW}Stopping Phoenix server...${NC}"
+    docker compose stop phoenix
+    docker compose rm -f phoenix
+    echo -e "${GREEN}Phoenix server stopped!${NC}"
+}
+
+show_phoenix_logs() {
+    echo -e "${GREEN}Showing Phoenix server logs...${NC}"
+    docker compose logs -f phoenix
 }
 
 # Main command handling
@@ -170,6 +197,15 @@ case "${1:-}" in
         ;;
     assets-logs)
         show_asset_logs
+        ;;
+    phoenix-start)
+        start_phoenix
+        ;;
+    phoenix-stop)
+        stop_phoenix
+        ;;
+    phoenix-logs)
+        show_phoenix_logs
         ;;
     help|--help|-h)
         print_usage

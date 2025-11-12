@@ -1,8 +1,6 @@
 import argparse
 import os
-from typing import List, cast
-from openai import OpenAI
-from openai.types.chat import ChatCompletionMessageParam
+from typing import cast
 from .directory_ops import DIRECTORY_TOOLS
 from .file_ops import FILE_TOOLS
 from .shell_ops import SHELL_TOOLS
@@ -14,6 +12,9 @@ from .agent import get_base_prompt, get_first_step_prompt
 from .llm_router import LLMRouter
 from .task_executor import initialize_task_executor
 
+# Phoenix observability
+from phoenix.otel import register
+
 
 def parse_args():
     """Parse CLI arguments for the message to send to the model."""
@@ -23,6 +24,15 @@ def parse_args():
 
 
 def main():
+    # Initialize Phoenix observability (connect to external Phoenix server)
+    phoenix_endpoint = os.getenv("PHOENIX_COLLECTOR_ENDPOINT", "http://localhost:6006")
+    tracer_provider = register(
+        auto_instrument=True,  # Auto-trace OpenAI calls
+        project_name="hyperfocus-agent",
+        endpoint=f"{phoenix_endpoint}/v1/traces"
+    )
+    print(f"✓ Phoenix tracing initialized - UI at {phoenix_endpoint}")
+
     args = parse_args()
     user_message = " ".join(args.message)
 
@@ -48,6 +58,9 @@ def main():
 
     print(f"Using remote base URL: {remote_url}")
     print(f"Using remote model: {remote_model}")
+
+    from openai import OpenAI
+    from openai.types.chat import ChatCompletionMessageParam
 
     local_client = OpenAI(base_url=local_base_url, api_key=local_api_key)
     remote_client = OpenAI(base_url=remote_url, api_key=remote_api_key)
@@ -83,7 +96,7 @@ def main():
     messages: list[ChatCompletionMessageParam] = [
         cast(ChatCompletionMessageParam, {"role": "system", "content": get_base_prompt()}),
         cast(ChatCompletionMessageParam, {"role": "user", "content": user_message}),
-        cast(ChatCompletionMessageParam, {"role": "system", "content": get_first_step_prompt()}),
+        # cast(ChatCompletionMessageParam, {"role": "system", "content": get_first_step_prompt()}),
     ]
     max_tool_iterations = int(os.getenv("LM_TOOL_CALL_ITERATIONS", "500"))
     iteration = 0
@@ -93,7 +106,6 @@ def main():
     should_stream = True
 
     while True:
-        # print(f"\n Sending messages to model {messages}")
         response = llm_router.complete(
             messages=messages,
             tools=tools,

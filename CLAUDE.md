@@ -22,6 +22,11 @@ poetry install
 poetry run hyperfocus
 ```
 
+### Adding Dependencies
+```bash
+poetry add some_dependency
+```
+
 ## Architecture
 
 ### Core Design Pattern: Security-First Tool Router
