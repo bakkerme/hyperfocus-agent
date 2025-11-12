@@ -100,11 +100,11 @@ def create_hyperfocus_agent():
         model=local_model,  # Default model (middleware will swap as needed)
         tools=ALL_TOOLS,
         checkpointer=MemorySaver(),  # In-memory state management
-        state_schema=HyperfocusState  # Our custom state
+        state_schema=HyperfocusState  # Our custom state extending AgentState
     )
 
     print("✓ LangChain agent initialized successfully")
-    print("✓ Phase 2 complete - agent ready with migrated tools")
+    print("✓ Phase 3 complete - agent ready with migrated tools")
     return agent
 
 

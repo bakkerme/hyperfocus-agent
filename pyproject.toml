@@ -30,3 +30,4 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 hyperfocus = "hyperfocus_agent.main:main"
+hyperfocus-lc = "hyperfocus_agent.langchain_main:main"
