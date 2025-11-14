@@ -37,11 +37,7 @@ def main():
     # Suppress non-fatal OpenInference tracer warnings for multimodal content
     # This is a known issue with the tracer not fully supporting multimodal messages
     logging.getLogger("openinference.instrumentation.langchain._tracer").setLevel(logging.CRITICAL)
-
-    print("=" * 80)
-    print("HYPERFOCUS AGENT - LangChain Edition")
-    print("=" * 80)
-    print()
+    logging.getLogger("httpx").setLevel(logging.WARNING)
 
     # Initialize Phoenix observability
     phoenix_endpoint = os.getenv("PHOENIX_COLLECTOR_ENDPOINT", "http://localhost:6006")
@@ -68,12 +64,6 @@ def main():
         # Create the agent
         agent = create_hyperfocus_agent()
         config = get_agent_config(args.thread_id)
-
-        print()
-        print("-" * 80)
-        print("AGENT RESPONSE")
-        print("-" * 80)
-        print()
 
         result = agent.invoke(
             {"messages": [{"role": "user", "content": user_message}]},

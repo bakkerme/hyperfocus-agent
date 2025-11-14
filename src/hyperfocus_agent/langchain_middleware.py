@@ -30,14 +30,16 @@ from .langchain_state import HyperfocusState
 local_model: ChatOpenAI | None = None
 remote_model: ChatOpenAI | None = None
 multimodal_model: ChatOpenAI | None = None
+router_threshold: int = 10000
 
 
-def initialize_models(local: ChatOpenAI, remote: ChatOpenAI, multimodal: ChatOpenAI | None = None):
+def initialize_models(local: ChatOpenAI, remote: ChatOpenAI, multimodal: ChatOpenAI | None = None, threshold: int = 10000):
     """Initialize the global model references for middleware to use."""
-    global local_model, remote_model, multimodal_model
+    global local_model, remote_model, multimodal_model, router_threshold
     local_model = local
     remote_model = remote
     multimodal_model = multimodal
+    router_threshold = threshold
     print(f"✓ Models initialized for middleware")
 
 
@@ -113,7 +115,7 @@ def dynamic_model_selection(
 
     # Calculate message length
     total_length = _calculate_message_length(messages)
-    threshold = int(os.getenv("LLM_ROUTER_THRESHOLD", "10000"))
+    threshold = router_threshold
 
     if total_length > threshold and remote_model is not None:
         print(f"→ [LLM Router] Using REMOTE LLM (length: {total_length} > {threshold})")

@@ -1,5 +1,5 @@
 #!/bin/bash
-# Helper script for running hyperfocus-agent in Docker test environment
+# Helper script for running hyperfocus-agent in Docker run environment
 
 set -e
 
@@ -16,13 +16,13 @@ print_usage() {
 Usage: $0 [command]
 
 Commands:
-    build       Build the Docker test container
-    run         Run the agent interactively in test container
-    shell       Open a bash shell in the test container
+    build       Build the Docker container
+    run         Run the agent interactively in the container
+    shell       Open a bash shell in the container
     dev         Run in development mode (live code editing)
     dev-shell   Open shell in dev container
     dev-prompt  Run dev container with custom prompt: $0 dev-prompt "Your prompt here"
-    clean       Remove test container and volumes
+    clean       Remove container and volumes
     rebuild     Clean, build, and run
     logs        Show container logs
 
@@ -35,8 +35,8 @@ Commands:
     assets-logs     Show asset server logs
 
 Examples:
-    $0 build                    # Build the test container
-    $0 run                      # Run the agent in test mode
+    $0 build                    # Build the container
+    $0 run                      # Run the agent
     $0 dev                      # Run in dev mode (live editing)
     $0 shell                    # Interactive shell for manual testing
     $0 clean                    # Clean up everything

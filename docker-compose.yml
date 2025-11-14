@@ -17,17 +17,14 @@ services:
       MULTIMODAL_OPENAI_API_KEY: ${MULTIMODAL_OPENAI_API_KEY:-""}
       MULTIMODAL_OPENAI_MODEL: ${MULTIMODAL_OPENAI_MODEL:-""}
 
-      JINA_API_KEY: ${JINA_API_KEY:-""}
+      LLM_ROUTER_THRESHOLD: ${LLM_ROUTER_THRESHOLD:-""}
 
       # Phoenix observability
       PHOENIX_COLLECTOR_ENDPOINT: http://phoenix:6006
     networks:
       - hyperfocus-net
     volumes:
-      # Mount test fixtures
-      - ./tests/fixtures:/workspace/fixtures:ro
-      # Persistent workspace for agent operations (isolated from host)
-      - test-workspace:/workspace/test_area
+      - ./workspace:/workspace
     stdin_open: true
     tty: true
     # Resource limits for safety
@@ -60,7 +57,7 @@ services:
       MULTIMODAL_OPENAI_API_KEY: ${MULTIMODAL_OPENAI_API_KEY:-""}
       MULTIMODAL_OPENAI_MODEL: ${MULTIMODAL_OPENAI_MODEL:-""}
 
-      JINA_API_KEY: ${JINA_API_KEY:-""}
+      LLM_ROUTER_THRESHOLD: ${LLM_ROUTER_THRESHOLD:-""}
 
       # Phoenix observability
       PHOENIX_COLLECTOR_ENDPOINT: http://phoenix:6006
@@ -71,10 +68,8 @@ services:
       - ./src:/app/src:rw
       # Mount pyproject.toml for package metadata
       - ./pyproject.toml:/app/pyproject.toml:ro
-      # Mount test fixtures
-      - ./tests/fixtures:/workspace/fixtures:ro
       # Persistent workspace for agent operations
-      - ./workspace/test_area:/workspace/test_area
+      - ./workspace:/workspace
 
   # Phoenix observability server
   phoenix:
