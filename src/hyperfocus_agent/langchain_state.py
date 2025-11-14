@@ -7,6 +7,13 @@ from typing import Any, TypedDict, Annotated
 from langchain_core.messages import BaseMessage
 from langgraph.graph import add_messages
 
+class DataEntry(TypedDict):
+    """Metadata and content for a stored data entry."""
+    data_id: str
+    data_type: str  # e.g., "text", "html", "soup", "json"
+    content: Any
+    created_at: str
+    metadata: dict[str, Any]
 
 class HyperfocusState(TypedDict, total=False):
     """Extended agent state for Hyperfocus agent.
@@ -41,7 +48,7 @@ class HyperfocusState(TypedDict, total=False):
     # Task execution context
     # Store large data for task-based processing
     # Note: Could also use LangGraph Store for this, but keeping in state initially for simplicity
-    stored_data: dict[str, Any]
+    stored_data: dict[str, DataEntry]
 
 
 class HyperfocusContext(TypedDict, total=False):

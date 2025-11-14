@@ -8,11 +8,12 @@ import base64
 from pathlib import Path
 from urllib.parse import urlparse
 import requests
-from langchain_core.tools import tool
-
+from langchain.tools import tool, ToolRuntime
+from langchain_core.messages import ToolMessage, HumanMessage
+from langgraph.types import Command
 
 @tool
-def load_image(file_path: str) -> str:
+def load_image(file_path: str, runtime: ToolRuntime) -> ToolMessage | Command:
     """Load an image file for analysis with vision capabilities.
 
     Supports both local file paths and remote URLs (http/https).
@@ -54,7 +55,7 @@ def load_image(file_path: str) -> str:
             else:
                 extension = Path(parsed.path).suffix.lower()
                 if extension not in mime_types:
-                    return f"Error: Unsupported image type: {extension}"
+                    return ToolMessage(content=f"Error: Unsupported image type: {extension}", tool_call_id=runtime.tool_call_id)
                 mime_type = mime_types[extension]
 
             base64_data = base64.b64encode(image_data).decode('utf-8')
@@ -66,11 +67,11 @@ def load_image(file_path: str) -> str:
             path = Path(file_path)
 
             if not path.exists():
-                return f"Error: Image file not found: {file_path}"
+                return ToolMessage(content=f"Error: Image file not found: {file_path}", tool_call_id=runtime.tool_call_id)
 
             extension = path.suffix.lower()
             if extension not in mime_types:
-                return f"Error: Unsupported image type: {extension}. Supported: {', '.join(mime_types.keys())}"
+                return ToolMessage(content=f"Error: Unsupported image type: {extension}. Supported: {', '.join(mime_types.keys())}", tool_call_id=runtime.tool_call_id)
 
             # Read and encode image
             with open(file_path, 'rb') as f:
@@ -81,9 +82,7 @@ def load_image(file_path: str) -> str:
             mime_type = mime_types[extension]
             display_path = str(path.absolute())
 
-        # Return success message
-        # The middleware will automatically inject the image into the conversation
-        return (
+        message = (
             f"✓ Image loaded successfully: {display_path}\n"
             f"  Type: {mime_type}\n"
             f"  Size: {size_kb:.1f} KB\n"
@@ -92,10 +91,29 @@ def load_image(file_path: str) -> str:
             f"You can now analyze it with the multimodal vision model."
         )
 
+        return Command(
+            update={
+                "messages": [
+                    ToolMessage(content=message, tool_call_id=runtime.tool_call_id),
+                    HumanMessage(
+                        content=[
+                            {"type": "text", "text": "Please analyze this image:"},
+                            {
+                                "type": "image",
+                                "source_type": "base64",
+                                "data": base64_data,
+                                "mime_type": mime_type
+                            }
+                        ]
+                    )
+                ],
+            }
+        )
+
     except requests.RequestException as e:
-        return f"Error fetching remote image: {str(e)}"
+        return ToolMessage(content=f"Error fetching remote image: {str(e)}", tool_call_id=runtime.tool_call_id)
     except Exception as e:
-        return f"Error loading image: {str(e)}"
+        return ToolMessage(content=f"Error loading image: {str(e)}", tool_call_id=runtime.tool_call_id)
 
 
 # Export tools as a list for easy import

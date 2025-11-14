@@ -16,7 +16,14 @@ def list_directory(path: str) -> str:
     Returns:
         A formatted list of files and directories
     """
-    listing = os.listdir(path)
+    try:
+        listing = os.listdir(path)
+    except FileNotFoundError:
+        return f"Error: Directory '{path}' does not exist."
+    except NotADirectoryError:
+        return f"Error: '{path}' is not a directory."
+    except PermissionError:
+        return f"Error: Permission denied to access '{path}'."
 
     # Format as a readable list
     if not listing:

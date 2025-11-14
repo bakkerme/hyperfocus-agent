@@ -1,34 +1,33 @@
-"""LangChain 1.0 agent setup and creation.
+"""Hyperfocus agent setup and creation.
 
-This module contains the main agent factory using LangChain 1.0's create_agent API.
-Migrated from LangGraph's deprecated create_react_agent to the new langchain.agents
-API with middleware support.
+This module contains the main agent factory using LangChain's create_agent API.
 """
 import os
 from langchain_openai import ChatOpenAI
 from langchain.agents import create_agent
-from langgraph.checkpoint.memory import MemorySaver
+from langgraph.checkpoint.memory import InMemorySaver
 
-from .agent import get_base_prompt
+from .prompts import get_base_prompt
 from .langchain_state import HyperfocusState, HyperfocusContext
+from .langchain_tools.directory_tools import DIRECTORY_TOOLS
+from .langchain_tools.file_tools import FILE_TOOLS
+from .langchain_tools.image_tools import IMAGE_TOOLS
+from .langchain_tools.shell_tools import SHELL_TOOLS
+from .langchain_tools.task_tools import TASK_TOOLS
+from .langchain_tools.web_tools import WEB_TOOLS
 from .langchain_middleware import (
     initialize_models,
     dynamic_model_selection,
-    inject_images_from_load_image,
+    # inject_images_from_load_image,
 )
 
-
 def create_hyperfocus_agent():
-    """Create the Hyperfocus LangChain 1.0 agent with all middleware and tools.
+    """Create the Hyperfocus agent with all middleware and tools.
 
-    This uses LangChain 1.0's create_agent API which provides:
-    - Built-in tool execution loop
-    - Middleware system for customization
-    - Dynamic model selection
-    - Message history management with checkpointing
+    This uses LangChain 1.0's create_agent API.
 
     Returns:
-        Configured LangChain agent ready to use
+        Configured Hyperfocus agent ready to use
     """
     # Read environment variables
     local_base_url = os.getenv("LOCAL_OPENAI_BASE_URL")
@@ -56,7 +55,7 @@ def create_hyperfocus_agent():
             "environment variables must be set."
         )
 
-    print(f"Initializing LangChain 1.0 agent...")
+    print(f"Initializing agent...")
     print(f"  Local: {local_base_url} / {local_model_name}")
     print(f"  Remote: {remote_base_url} / {remote_model_name}")
 
@@ -67,7 +66,7 @@ def create_hyperfocus_agent():
         api_key=local_api_key,
         base_url=local_base_url,
         temperature=0,
-        max_tokens=4096
+        # max_tokens=4096
     )
 
     remote_model = ChatOpenAI(
@@ -75,7 +74,7 @@ def create_hyperfocus_agent():
         api_key=remote_api_key,
         base_url=remote_base_url,
         temperature=0,
-        max_tokens=4096
+        # max_tokens=4096
     )
 
     # Optional multimodal model
@@ -87,19 +86,24 @@ def create_hyperfocus_agent():
             api_key=multimodal_api_key,
             base_url=multimodal_base_url,
             temperature=0,
-            max_tokens=2048
+            # max_tokens=2048
         )
 
     # Initialize global model references for middleware
     initialize_models(local_model, remote_model, multimodal_model)
 
-    # Import migrated tools
-    from .langchain_tools import ALL_TOOLS
-
-    print(f"✓ Loaded {len(ALL_TOOLS)} tools")
-
     # Get system prompt from agent module
     system_prompt = get_base_prompt()
+
+    # Combine all tools into a single flat list
+    all_tools = [
+        *DIRECTORY_TOOLS,
+        *FILE_TOOLS,
+        *IMAGE_TOOLS,
+        *SHELL_TOOLS,
+        # *TASK_TOOLS,
+        *WEB_TOOLS,
+    ]
 
     # Create agent using LangChain 1.0 API
     # Middleware order matters:
@@ -107,17 +111,16 @@ def create_hyperfocus_agent():
     # 2. dynamic_model_selection - Routes to multimodal LLM when images detected
     agent = create_agent(
         model=local_model,  # Default model (will be overridden by middleware)
-        tools=ALL_TOOLS,
+        tools=all_tools,
         system_prompt=system_prompt,
         state_schema=HyperfocusState,
         context_schema=HyperfocusContext,
-        middleware=[inject_images_from_load_image, dynamic_model_selection],
-        checkpointer=MemorySaver(),
+        # middleware=[inject_images_from_load_image, dynamic_model_selection],
+        middleware=[dynamic_model_selection],
+        checkpointer=InMemorySaver(),
     )
 
-    print("✓ LangChain 1.0 agent initialized successfully")
-    print("✓ Migrated to create_agent with middleware-based model routing")
-    print("✓ Multimodal image injection enabled via @wrap_tool_call middleware")
+    print("✓ Agent initialized successfully")
     return agent
 
 

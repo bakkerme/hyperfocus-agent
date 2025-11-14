@@ -998,27 +998,28 @@ wrapt = ">=1.14.0,<2"
 test = ["jsonschema", "openai", "pydantic (>=2.0.0)", "pytest-asyncio", "pytest-recording", "types-jsonschema"]
 
 [[package]]
-name = "openinference-instrumentation-openai"
-version = "0.1.40"
-description = "OpenInference OpenAI Instrumentation"
+name = "openinference-instrumentation-langchain"
+version = "0.1.55"
+description = "OpenInference LangChain Instrumentation"
 optional = false
-python-versions = "<3.14,>=3.9"
+python-versions = "<3.15,>=3.9"
 files = [
-    {file = "openinference_instrumentation_openai-0.1.40-py3-none-any.whl", hash = "sha256:774a7b18a6ce0a7f60bdbfd579f65ef951e881058644c8a111a9873d7da85051"},
-    {file = "openinference_instrumentation_openai-0.1.40.tar.gz", hash = "sha256:54e752f55b85ccb6d6070dbe7b17f8cd4b274f7fda2f11b5f1ad9917319b7d51"},
+    {file = "openinference_instrumentation_langchain-0.1.55-py3-none-any.whl", hash = "sha256:3f755950254fdf7741e0327a585cb0609c6c5553109a2b52929c29ce2a02c2d3"},
+    {file = "openinference_instrumentation_langchain-0.1.55.tar.gz", hash = "sha256:57a2875ca845950f944700d9352efb080c8b20049253408e7739d960c43f34e8"},
 ]
 
 [package.dependencies]
 openinference-instrumentation = ">=0.1.27"
-openinference-semantic-conventions = ">=0.1.23"
+openinference-semantic-conventions = ">=0.1.17"
 opentelemetry-api = "*"
 opentelemetry-instrumentation = "*"
 opentelemetry-semantic-conventions = "*"
-typing-extensions = "*"
 wrapt = "*"
 
 [package.extras]
-instruments = ["openai (>=1.99.9)"]
+instruments = ["langchain-core (>=0.3.9)"]
+test = ["langchain (==0.3.15)", "langchain-community (==0.3.15)", "langchain-core (==0.3.50)", "langchain-google-vertexai (==2.0.12)", "langchain-openai (==0.2.14)", "langsmith", "opentelemetry-sdk", "portpicker", "pytest-recording", "pytest-rerunfailures", "respx", "starlette", "uvicorn", "vcrpy (>=6.0.1)"]
+type-check = ["langchain-core (==0.3.9)"]
 
 [[package]]
 name = "openinference-semantic-conventions"
@@ -2333,4 +2334,4 @@ cffi = ["cffi (>=1.17,<2.0)", "cffi (>=2.0.0b)"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.12,<3.14"
-content-hash = "42f76748d77f74d6f66e1cf064b11be813c291657042db6ba53828b5abc69d17"
+content-hash = "692a51fa4ddf503594d3df20ba9b083c30db196e133f7cddcbbaf650927124d2"

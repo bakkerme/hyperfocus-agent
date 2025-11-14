@@ -21,19 +21,17 @@ def read_file(path: str) -> str:
         path: The path of the file to read
 
     Returns:
-        The contents of the file as a string
+        The contents of the file as a string, or an error message for binary files
     """
-    with open(path, 'r') as f:
-        content = f.read()
-
-    # Note: For now, returning simple string.
-    # In Phase 3/4, we'll integrate ToolRuntime to handle:
-    # - Large file auto-storage
-    # - Context inclusion metadata
-    # - Iteration tracking
-
-    return content
-
+    try:
+        with open(path, 'r', encoding='utf-8') as f:
+            content = f.read()
+        return content
+    except UnicodeDecodeError:
+        # File is binary, return a helpful message
+        import os
+        file_size = os.path.getsize(path)
+        return f"Error: '{path}' is a binary file ({file_size} bytes). Cannot read as text. Use image analysis tools for images or other specialized tools for binary files."
 
 @tool
 def create_file_with_content(path: str, content: str) -> str:

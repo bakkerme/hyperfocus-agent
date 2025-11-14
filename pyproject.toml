@@ -17,11 +17,11 @@ lxml = "^6.0.2"
 beautifulsoup4 = "^4.14.2"
 markdown-analysis = "^0.1.5"
 arize-phoenix-otel = "^0.13.1"
-openinference-instrumentation-openai = "^0.1.40"
 # LangChain dependencies for migration - using 0.3.x for openai 2.x compatibility
 langchain = "^1.0.5"
 langgraph = "^1.0.3"
 langchain-openai = "^1.0.2"
+openinference-instrumentation-langchain = "^0.1.55"
 
 [build-system]
 requires = ["poetry-core"]
@@ -29,4 +29,3 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 hyperfocus = "hyperfocus_agent.main:main"
-hyperfocus-lc = "hyperfocus_agent.langchain_main:main"
