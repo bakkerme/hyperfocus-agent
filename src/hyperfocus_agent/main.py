@@ -4,6 +4,7 @@ Usage:
     poetry run hyperfocus "your message here"
 """
 import argparse
+import logging
 import os
 import sys
 
@@ -33,6 +34,10 @@ def parse_args():
 
 def main():
     """Main entry point for LangChain-based agent."""
+    # Suppress non-fatal OpenInference tracer warnings for multimodal content
+    # This is a known issue with the tracer not fully supporting multimodal messages
+    logging.getLogger("openinference.instrumentation.langchain._tracer").setLevel(logging.CRITICAL)
+
     print("=" * 80)
     print("HYPERFOCUS AGENT - LangChain Edition")
     print("=" * 80)

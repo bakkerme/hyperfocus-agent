@@ -97,7 +97,6 @@ def load_image(file_path: str, runtime: ToolRuntime) -> ToolMessage | Command:
                     ToolMessage(content=message, tool_call_id=runtime.tool_call_id),
                     HumanMessage(
                         content=[
-                            {"type": "text", "text": "Please analyze this image:"},
                             {
                                 "type": "image",
                                 "source_type": "base64",

@@ -18,7 +18,7 @@ from .langchain_tools.web_tools import WEB_TOOLS
 from .langchain_middleware import (
     initialize_models,
     dynamic_model_selection,
-    # inject_images_from_load_image,
+    strip_processed_images,
 )
 
 def create_hyperfocus_agent():
@@ -107,7 +107,7 @@ def create_hyperfocus_agent():
 
     # Create agent using LangChain 1.0 API
     # Middleware order matters:
-    # 1. inject_images_from_load_image - Intercepts load_image and injects images
+    # 1. strip_processed_images - Removes images after they've been processed
     # 2. dynamic_model_selection - Routes to multimodal LLM when images detected
     agent = create_agent(
         model=local_model,  # Default model (will be overridden by middleware)
@@ -115,8 +115,7 @@ def create_hyperfocus_agent():
         system_prompt=system_prompt,
         state_schema=HyperfocusState,
         context_schema=HyperfocusContext,
-        # middleware=[inject_images_from_load_image, dynamic_model_selection],
-        middleware=[dynamic_model_selection],
+        middleware=[strip_processed_images, dynamic_model_selection],
         checkpointer=InMemorySaver(),
     )
 
