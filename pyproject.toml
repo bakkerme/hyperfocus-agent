@@ -22,6 +22,7 @@ langchain = "^1.0.5"
 langgraph = "^1.0.3"
 langchain-openai = "^1.0.2"
 openinference-instrumentation-langchain = "^0.1.55"
+duckdb = "^1.4.2"
 
 [build-system]
 requires = ["poetry-core"]

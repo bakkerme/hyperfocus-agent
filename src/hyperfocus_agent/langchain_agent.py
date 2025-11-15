@@ -10,6 +10,7 @@ from langgraph.checkpoint.memory import InMemorySaver
 
 from .prompts import get_base_prompt
 from .langchain_state import HyperfocusState, HyperfocusContext
+from .langchain_tools.csv_tools import CSV_TOOLS
 from .langchain_tools.directory_tools import DIRECTORY_TOOLS
 from .langchain_tools.file_tools import FILE_TOOLS
 from .langchain_tools.image_tools import IMAGE_TOOLS
@@ -109,6 +110,7 @@ def create_hyperfocus_agent():
 
     # Combine all tools into a single flat list
     all_tools = [
+        *CSV_TOOLS,
         *DIRECTORY_TOOLS,
         *FILE_TOOLS,
         *IMAGE_TOOLS,

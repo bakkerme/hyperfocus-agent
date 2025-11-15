@@ -13,6 +13,9 @@ def execute_shell_command(command: str) -> str:
     SECURITY WARNING: This tool executes arbitrary shell commands with full
     user permissions. Only use with trusted input.
 
+    Avoid installing new packages or running destructive commands without explicit
+    user consent.
+
     Args:
         command: The shell command to execute
 

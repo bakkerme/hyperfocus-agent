@@ -14,14 +14,10 @@ from langgraph.types import Command
 
 @tool
 def load_image(file_path: str, runtime: ToolRuntime) -> ToolMessage | Command:
-    """Load an image file for analysis with vision capabilities.
+    """Load an image file for analysis with vision capabilities. Can perform image analysis and OCR.
 
     Supports both local file paths and remote URLs (http/https).
     Supported formats: JPEG, PNG, GIF, WebP.
-
-    The image will be automatically injected into the conversation for
-    multimodal analysis via middleware. The multimodal LLM will receive
-    the image content and can analyze it.
 
     Args:
         file_path: Path to the image file (local path or URL)
