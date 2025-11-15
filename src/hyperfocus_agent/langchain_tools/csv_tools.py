@@ -221,7 +221,7 @@ def query_csv_sql(
             f"Rows returned: {row_count:,}\n"
             f"Columns: {', '.join(columns)}\n\n"
             f"Preview (up to {MAX_QUERY_DISPLAY_ROWS} rows):\n{preview_text}\n\n"
-            "Full results stored in data_store; reuse via that ID as needed."
+            "This does not return the full results. Use run_task_on_stored_row_data(data_id=..., prompt=...) to process results in a subagent."
         )
 
         return Command(
@@ -237,7 +237,6 @@ def query_csv_sql(
         return _error_command(runtime, f"Error executing SQL: {err}")
     except Exception as err:  # pragma: no cover - defensive catch
         return _error_command(runtime, f"Error executing SQL: {err}")
-
 
 def _register_csv_view(
     conn: duckdb.DuckDBPyConnection,
