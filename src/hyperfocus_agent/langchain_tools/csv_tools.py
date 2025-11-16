@@ -18,8 +18,7 @@ from langchain.tools import tool, ToolRuntime
 from langchain_core.messages import ToolMessage
 from langgraph.types import Command
 
-from ..data_store import data_exists, retrieve_data, store_data
-from ..langchain_state import DataEntry, HyperfocusContext, HyperfocusState
+from ..langchain_state import DataEntry, HyperfocusContext, HyperfocusState, data_exists, retrieve_data
 
 MAX_PREVIEW_ROWS = 5
 MAX_QUERY_DISPLAY_ROWS = 20
@@ -75,13 +74,6 @@ def load_csv_file(
             "metadata": metadata,
         }
 
-        store_data(
-            data_id=data_id,
-            content=entry["content"],
-            data_type=data_id,
-            metadata=metadata,
-        )
-
         preview_text = _format_table(column_names, preview_rows)
 
         message = (
@@ -99,7 +91,7 @@ def load_csv_file(
 
         return Command(
             update={
-                "stored_data": {data_id: entry},
+                "stored_data": entry,
                 "messages": [
                     ToolMessage(content=message, tool_call_id=runtime.tool_call_id)
                 ],
@@ -118,12 +110,14 @@ def describe_csv_table(
 ) -> str:
     """Show DuckDB's inferred schema for a previously loaded CSV."""
 
-    if not data_exists(data_id):
+    if not data_exists(runtime, data_id):
         return f"Error: No CSV found with ID '{data_id}'. Use load_csv_file first."
 
-    entry = retrieve_data(data_id)
-    if not isinstance(entry, dict) or "path" not in entry:
+    data = retrieve_data(runtime, data_id)
+    if not isinstance(data, dict) or "path" not in data:
         return f"Error: Stored data '{data_id}' is not a CSV description."
+
+    entry = data["content"]
 
     abs_path = entry["path"]
     dialect = entry.get("dialect", {})
@@ -158,12 +152,14 @@ def query_csv_sql(
 ) -> Command:
     """Execute a DuckDB SQL statement against the stored CSV."""
 
-    if not data_exists(data_id):
+    if not data_exists(runtime, data_id):
         return _error_command(runtime, f"Error: No CSV found with ID '{data_id}'.")
 
-    entry = retrieve_data(data_id)
-    if not isinstance(entry, dict) or "path" not in entry:
+    data = retrieve_data(runtime, data_id)
+    if not isinstance(data, dict) or "path" not in data:
         return _error_command(runtime, f"Error: Stored data '{data_id}' is not a CSV table.")
+
+    entry = data["content"]
 
     abs_path = entry["path"]
     dialect = entry.get("dialect", {})
@@ -207,13 +203,6 @@ def query_csv_sql(
             "metadata": metadata,
         }
 
-        store_data(
-            data_id=result_data_id,
-            content=result_entry["content"],
-            data_type="csv_query_result",
-            metadata=metadata,
-        )
-
         message = (
             "✓ Query executed\n"
             f"Source ID: {data_id}\n"
@@ -226,7 +215,7 @@ def query_csv_sql(
 
         return Command(
             update={
-                "stored_data": {result_data_id: result_entry},
+                "stored_data": result_entry,
                 "messages": [
                     ToolMessage(content=message, tool_call_id=runtime.tool_call_id)
                 ],

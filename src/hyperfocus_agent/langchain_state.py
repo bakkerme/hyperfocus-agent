@@ -35,7 +35,6 @@ class HyperfocusState(TypedDict, total=False):
 
     # Task execution context
     # Store large data for task-based processing
-    # Note: Could also use LangGraph Store for this, but keeping in state initially for simplicity
     stored_data: dict[str, DataEntry]
 
 
@@ -47,3 +46,27 @@ class HyperfocusContext(TypedDict, total=False):
     For now, keeping it minimal as most of our config comes from env vars.
     """
     pass
+
+# To store data, use something like the following in your tool:
+# return Command(
+#     update={
+#         "stored_data": entry,
+#         "messages": [
+#             ToolMessage(content=message, tool_call_id=runtime.tool_call_id)
+#         ],
+#     }
+# )
+
+def get_data_info(runtime: Any, data_id: str) -> DataEntry | None:
+    """Get metadata and content for a stored data entry by ID."""
+    if data_id and data_exists(runtime, data_id):
+        return runtime.state.get("stored_data", {}).get(data_id).metadata
+    return None
+
+def data_exists(runtime: Any, data_id: str) -> bool:
+    """Check if stored data with given ID exists in the agent state."""
+    return data_id in runtime.state.get("stored_data", {})
+
+def retrieve_data(runtime: Any, data_id: str) -> DataEntry | None:
+    """Retrieve stored data entry by ID from the agent state."""
+    return runtime.state.get("stored_data", {}).get(data_id)

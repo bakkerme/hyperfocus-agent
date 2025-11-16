@@ -34,6 +34,10 @@ Commands:
     assets-stop     Stop the asset server
     assets-logs     Show asset server logs
 
+    crawl4ai-start  Start the Crawl4AI service (web scraping on port 11235)
+    crawl4ai-stop   Stop the Crawl4AI service
+    crawl4ai-logs   Show Crawl4AI service logs
+
 Examples:
     $0 build                    # Build the container
     $0 run                      # Run the agent
@@ -135,6 +139,25 @@ show_asset_logs() {
     docker compose logs -f asset-server
 }
 
+start_crawl4ai() {
+    echo -e "${GREEN}Starting Crawl4AI service...${NC}"
+    echo -e "${YELLOW}Service will be reachable at http://localhost:11235 (container name: crawl4ai)${NC}"
+    docker compose up -d crawl4ai
+    echo -e "${GREEN}Crawl4AI service started!${NC}"
+}
+
+stop_crawl4ai() {
+    echo -e "${YELLOW}Stopping Crawl4AI service...${NC}"
+    docker compose stop crawl4ai
+    docker compose rm -f crawl4ai
+    echo -e "${GREEN}Crawl4AI service stopped!${NC}"
+}
+
+show_crawl4ai_logs() {
+    echo -e "${GREEN}Showing Crawl4AI service logs...${NC}"
+    docker compose logs -f crawl4ai
+}
+
 start_phoenix() {
     echo -e "${GREEN}Starting Phoenix observability server...${NC}"
     echo -e "${YELLOW}Phoenix UI will be available at http://localhost:6006${NC}"
@@ -197,6 +220,15 @@ case "${1:-}" in
         ;;
     assets-logs)
         show_asset_logs
+        ;;
+    crawl4ai-start)
+        start_crawl4ai
+        ;;
+    crawl4ai-stop)
+        stop_crawl4ai
+        ;;
+    crawl4ai-logs)
+        show_crawl4ai_logs
         ;;
     phoenix-start)
         start_phoenix

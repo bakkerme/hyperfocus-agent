@@ -104,6 +104,16 @@ services:
     networks:
       - hyperfocus-net
 
+  # Crawl4AI service for web scraping tasks
+  crawl4ai:
+    image: unclecode/crawl4ai:latest
+    container_name: crawl4ai
+    ports:
+      - "11235:11235"
+    shm_size: 1g
+    networks:
+      - hyperfocus-net
+
 volumes:
   # Named volume for test workspace - isolated from host filesystem
   test-workspace:

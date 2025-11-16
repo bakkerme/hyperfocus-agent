@@ -17,8 +17,7 @@ from langchain_core.messages import HumanMessage, ToolMessage
 from langchain_openai import ChatOpenAI
 from langgraph.types import Command
 
-from ..data_store import data_exists, retrieve_data, store_data, get_data_info
-from ..langchain_state import DataEntry, HyperfocusContext, HyperfocusState
+from ..langchain_state import  HyperfocusContext, HyperfocusState, data_exists, retrieve_data, get_data_info
 from ..model_config import ModelConfig
 from ..utils.image_utils import load_image_as_base64
 
@@ -90,6 +89,7 @@ def run_task(
     try:
         # Execute using core logic
         final_response = execute_task(
+            runtime=runtime,
             prompt=prompt,
             data_id=data_id,
             data_text=data_text,
@@ -158,12 +158,15 @@ def run_task_on_stored_row_data(
         )
     """
     # Validate it's CSV data with row limits
-    if not data_exists(data_id):
+    if not data_exists(runtime, data_id):
         return f"Error: No data found with ID '{data_id}'"
     
     try:
-        info = get_data_info(data_id)
-        metadata = info.get("metadata", {})
+        info = get_data_info(runtime, data_id)
+        if not info or info.get("data_type") != "csv_query_result":
+            return f"Error: Data ID '{data_id}' is not of type 'csv_query_result'."
+
+        metadata = info["metadata"]
         row_count = metadata.get("row_count", 0)
         
         if row_count > MAX_ROWS_PER_TASK:
@@ -175,6 +178,7 @@ def run_task_on_stored_row_data(
     
     # Delegate to generic run_task
     result = execute_task(
+        runtime=runtime,
         prompt=prompt,
         data_id=data_id,
         enable_tools=True,
@@ -185,6 +189,7 @@ def run_task_on_stored_row_data(
 # Core task execution logic
 
 def execute_task(
+    runtime: ToolRuntime[HyperfocusContext, HyperfocusState],
     prompt: str,
     data_id: str | None = None,
     data_text: str | None = None,
@@ -212,12 +217,14 @@ def execute_task(
     Examples:
         # From another tool
         result = execute_task(
+            runtime,
             "Summarize this data",
             data_id="csv_query_abc123"
         )
         
         # With direct text
         result = execute_task(
+            runtime,
             "Extract key points",
             data_text="Long article..."
         )
@@ -232,7 +239,7 @@ def execute_task(
         )
     
     # 2. BUILD TASK MESSAGES
-    messages = _build_task_messages(prompt, data_id, data_text, image_path)
+    messages = _build_task_messages(prompt, data_id, data_text, image_path, runtime)
     
     # 3. CREATE APPROPRIATE SUB-AGENT
     has_image = image_path is not None
@@ -259,6 +266,7 @@ def _build_task_messages(
     data_id: str | None,
     data_text: str | None,
     image_path: str | None,
+    runtime: ToolRuntime[HyperfocusContext, HyperfocusState],
 ) -> list[HumanMessage]:
     """Build message list for sub-agent based on input types.
     
@@ -270,7 +278,7 @@ def _build_task_messages(
     prompt_text = prompt
     
     if data_id:
-        data = _load_and_format_data(data_id)
+        data = _load_and_format_data(runtime, data_id)
         prompt_text += f"\n\nData to process:\n{data}"
     elif data_text:
         prompt_text += f"\n\nData to process:\n{data_text}"
@@ -290,7 +298,7 @@ def _build_task_messages(
     return [HumanMessage(content=content_parts)]
 
 
-def _load_and_format_data(data_id: str) -> str:
+def _load_and_format_data(runtime: ToolRuntime[HyperfocusContext, HyperfocusState], data_id: str) -> str:
     """Load stored data and format it appropriately based on type.
     
     Handles:
@@ -300,12 +308,16 @@ def _load_and_format_data(data_id: str) -> str:
     - task_result → previous task output
     - text → raw text
     """
-    if not data_exists(data_id):
+    if not data_exists(runtime, data_id):
         raise ValueError(f"Data ID '{data_id}' not found")
     
-    content = retrieve_data(data_id)
-    info = get_data_info(data_id)
-    data_type = info.get("data_type", "unknown")
+    data = retrieve_data(runtime, data_id)
+    if not data:
+        raise ValueError(f"Data ID '{data_id}' could not be retrieved")
+
+    content = data["content"]
+    data_type = data["data_type"]
+    metadata = data["metadata"]
     
     # Format based on data type
     if data_type == "csv_query_result":
@@ -318,7 +330,6 @@ def _load_and_format_data(data_id: str) -> str:
     
     elif data_type == "csv_table":
         # CSV table metadata (don't load full table)
-        metadata = info.get("metadata", {})
         return (
             f"CSV Table Summary:\n"
             f"Path: {metadata.get('path', 'unknown')}\n"

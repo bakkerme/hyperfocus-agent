@@ -19,6 +19,7 @@ from .langchain_middleware import (
     initialize_models,
     dynamic_model_selection,
     strip_processed_images,
+    log_tool_execution,
 )
 
 def create_hyperfocus_agent():
@@ -45,25 +46,26 @@ def create_hyperfocus_agent():
 
     # Combine all tools into a single flat list
     all_tools = [
-        *CSV_TOOLS,
+        # *CSV_TOOLS,
         *DIRECTORY_TOOLS,
         *FILE_TOOLS,
-        *IMAGE_TOOLS,
+        # *IMAGE_TOOLS,
         *SHELL_TOOLS,
-        *TASK_TOOLS,
+        # *TASK_TOOLS,
         *WEB_TOOLS,
     ]
 
     # Middleware order:
     # 1. strip_processed_images - Removes images after they've been processed
     # 2. dynamic_model_selection - Routes to multimodal LLM when images detected
+    # 3. log_tool_execution - Logs tool calls and inputs for observability
     agent = create_agent(
         model=config.local,  # Default model (will be overridden by middleware)
         tools=all_tools,
         system_prompt=system_prompt,
         state_schema=HyperfocusState,
         context_schema=HyperfocusContext,
-        middleware=[strip_processed_images, dynamic_model_selection],
+        middleware=[strip_processed_images, dynamic_model_selection, log_tool_execution],
         checkpointer=InMemorySaver(),
     )
 

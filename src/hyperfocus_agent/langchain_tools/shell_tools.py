@@ -16,6 +16,12 @@ def execute_shell_command(command: str) -> str:
     Avoid installing new packages or running destructive commands without explicit
     user consent.
 
+    Available commands:
+        - Any valid shell command (e.g., ls, cat, echo, grep, etc.)
+        - Python scripts via `python script.py`
+        - System utilities (e.g., curl, wget, etc.)
+        - Python libraries like beautifulsoup4 can be used for html scraping and parsing
+
     Args:
         command: The shell command to execute
 

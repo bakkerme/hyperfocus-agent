@@ -12,6 +12,7 @@ import sys
 from phoenix.otel import register
 
 from .langchain_agent import create_hyperfocus_agent, get_agent_config
+from .prompts import get_first_step_prompt
 
 
 def parse_args():
@@ -66,7 +67,12 @@ def main():
         config = get_agent_config(args.thread_id)
 
         result = agent.invoke(
-            {"messages": [{"role": "user", "content": user_message}]},
+            {
+                "messages": [
+                    {"role": "user", "content": user_message},
+                    {"role": "system", "content": get_first_step_prompt()}
+                ]
+            },
             config=config
         )
 
