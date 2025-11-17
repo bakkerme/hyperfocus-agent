@@ -1,4 +1,5 @@
-"""Web scraping tools"""
+"""Web scraping tools - unified data source architecture"""
+from os import path
 import requests
 import hashlib
 import html2text
@@ -7,151 +8,31 @@ from mrkdwn_analysis import MarkdownAnalyzer
 from datetime import datetime
 from langgraph.types import Command
 from langchain_core.messages import ToolMessage
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup
 from lxml import etree, html as lxml_html
-from ..utils.html_utils import preprocess_html_for_schema, get_markdown_outline_from_html
+from ..utils.html_utils import preprocess_html_for_schema, get_markdown_outline_from_html, create_dom_skeleton
 
 from ..langchain_state import DataEntry, HyperfocusState, HyperfocusContext, data_exists, retrieve_data
 
-
-def create_dom_skeleton(html_content: str, max_depth: int = 10, compact_threshold: int = 3) -> tuple[BeautifulSoup, str]:
-    """
-    Parse HTML and generate a DOM skeleton for reasoning about structure.
-
-    Args:
-        html_content: Raw HTML string to parse
-        max_depth: Maximum depth to traverse in the DOM tree
-        compact_threshold: Minimum number of consecutive identical siblings to group together
-
-    Returns:
-        Tuple of (BeautifulSoup object, skeleton string)
-    """
-    # Parse with BeautifulSoup
-    soup = BeautifulSoup(html_content, 'lxml')
-
-    # Generate skeleton
-    lines = []
-
-    def get_element_signature(tag: Tag) -> str:
-        sig = tag.name
-        if tag.get('id'):
-            sig += f"#{tag.get('id')}"
-        classes = tag.get('class')
-        if classes and isinstance(classes, list):
-            class_str = '.'.join(classes[:2])
-            sig += f".{class_str}"
-            if len(classes) > 2:
-                sig += f"(+{len(classes)-2})"
-        notable_attrs = []
-        for attr in ['data-testid', 'data-id', 'role', 'aria-label']:
-            if tag.get(attr):
-                notable_attrs.append(f"{attr}=\"{tag.get(attr)}\"")
-        if notable_attrs:
-            sig += f" [{', '.join(notable_attrs[:2])}]"
-        return sig
-
-    def is_notable_element(tag: Tag) -> bool:
-        """Check if element has notable attributes that make it worth showing separately"""
-        return bool(tag.get('id')) or bool(tag.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
-
-    def get_compact_signature(tag: Tag) -> str:
-        """Get a simplified signature for grouping (name + child count, ignore other attrs)"""
-        children = [
-            child for child in tag.children
-            if isinstance(child, Tag) and child.name not in ['script', 'style', 'meta', 'link', 'noscript']
-        ]
-        return f"{tag.name}:{len(children)}"
-
-    def traverse(element: Tag, depth: int = 0, prefix: str = "") -> None:
-        if depth > max_depth:
-            return
-        if element.name in ['script', 'style', 'meta', 'link', 'noscript']:
-            return
-
-        sig = get_element_signature(element)
-        children = [
-            child for child in element.children
-            if isinstance(child, Tag) and child.name not in ['script', 'style', 'meta', 'link', 'noscript']
-        ]
-        child_count = len(children)
-        indent = "  " * depth
-        line = f"{indent}{prefix}{sig}"
-        if child_count > 0:
-            line += f" ({child_count} children)"
-        if element.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
-            heading_text = element.get_text(strip=True)[:80]
-            if heading_text:
-                line += f' → "{heading_text}"'
-        lines.append(line)
-
-        # Group consecutive identical children for compact output
-        i = 0
-        while i < len(children):
-            child = children[i]
-
-            # Check if this child should be grouped with consecutive siblings
-            if not is_notable_element(child):
-                compact_sig = get_compact_signature(child)
-
-                # Count consecutive identical siblings
-                group_count = 1
-                while (i + group_count < len(children) and
-                       not is_notable_element(children[i + group_count]) and
-                       get_compact_signature(children[i + group_count]) == compact_sig):
-                    group_count += 1
-
-                # If we have enough identical siblings, output a grouped line
-                if group_count >= compact_threshold:
-                    is_last = (i + group_count) >= len(children)
-                    child_prefix = "└── " if is_last else "├── "
-                    child_sig = get_element_signature(child)
-
-                    # Get the child's children to show structure inline
-                    grandchildren = [
-                        gc for gc in child.children
-                        if isinstance(gc, Tag) and gc.name not in ['script', 'style', 'meta', 'link', 'noscript']
-                    ]
-
-                    if grandchildren:
-                        # Show child structure inline for grouped elements
-                        # Check if all grandchildren are the same type
-                        gc_sigs = [get_compact_signature(gc) for gc in grandchildren]
-                        if len(set(gc_sigs)) == 1:
-                            # All grandchildren are identical - show compactly
-                            gc_name = grandchildren[0].name
-                            grouped_line = f"{indent}  {child_prefix}{child_sig} [{len(grandchildren)} {gc_name}] × {group_count}"
-                        else:
-                            # Mixed grandchildren - just show count
-                            grouped_line = f"{indent}  {child_prefix}{child_sig} × {group_count}"
-                    else:
-                        grouped_line = f"{indent}  {child_prefix}{child_sig} × {group_count}"
-
-                    lines.append(grouped_line)
-
-                    # Skip processing these grouped children individually
-                    i += group_count
-                    continue
-
-            # Process child normally (not grouped)
-            is_last = i == len(children) - 1
-            child_prefix = "└── " if is_last else "├── "
-            traverse(child, depth + 1, child_prefix)
-            i += 1
-
-    traverse(soup.html if soup.html else soup)
-    skeleton = "\n".join(lines)
-
-    return soup, skeleton
-
 @tool
-def readable_web_get(url: str, runtime: ToolRuntime) -> Command:
-    """Fetch and store a web page as markdown.
+def load_web_page(url: str, runtime: ToolRuntime) -> Command:
+    """Load a web page and store it for multiple extraction methods.
+
+    This is the unified entry point for web scraping. It fetches the HTML once
+    and provides both structural overview (DOM skeleton + markdown outline) to help
+    you decide which extraction method to use.
+
+    After loading, you can use:
+    - get_markdown_view() - Get full markdown conversion
+    - extract_markdown_section() - Extract specific markdown section
+    - extract_with_css() - Query with CSS selectors
+    - extract_with_xpath() - Query with XPath expressions
 
     Args:
         url: The URL to fetch
 
     Returns:
-        String with headings list and data_id for extracting sections
+        Page ID, DOM skeleton, and markdown outline for reasoning about extraction
     """
     try:
         # Step 1: Fetch raw HTML
@@ -167,60 +48,64 @@ def readable_web_get(url: str, runtime: ToolRuntime) -> Command:
             and response.apparent_encoding and 'utf' in response.apparent_encoding.lower()):
             response.encoding = 'utf-8'
 
-        # Step 2: Convert to markdown
-        h = html2text.HTML2Text()
-        h.ignore_links = False
-        h.ignore_images = False
-        h.ignore_emphasis = False
-        h.unicode_snob = True
-        h.body_width = 0  # Don't wrap lines
+        # Step 2: Parse HTML and create DOM skeleton
+        soup, skeleton = create_dom_skeleton(response.text)
 
-        markdown_content = h.handle(response.text)
+        # Step 3: Get markdown outline (headings with XPath references)
+        markdown_outline = get_markdown_outline_from_html(response.text)
 
-        # Step 3: Extract headings from markdown
-        doc = MarkdownAnalyzer.from_string(markdown_content)
-        headers_dict = doc.identify_headers()
-        headers_list = headers_dict.get('Header', [])
-
-        # Step 4: Store markdown in data store
+        # Step 4: Store the parsed page (raw HTML only - parse on demand to avoid serialization issues)
         url_hash = hashlib.md5(url.encode()).hexdigest()[:8]
-        data_id = f"markdown_{url_hash}"
+        page_id = f"page_{url_hash}"
 
-        entry: DataEntry = {
-            "data_id": data_id,
-            "data_type": "markdown",
-            "content": markdown_content,
+
+        # write html direct to disk to allow for grep use
+        cwd = path.abspath(path.curdir)
+        full_path = f"{cwd}/{page_id}.html"
+        with open(full_path, "w", encoding=response.encoding) as f:
+            f.write(response.text)
+        
+
+
+        page_entry: DataEntry = {
+            "data_id": page_id,
+            "data_type": "html_page",
+            "content": response.text,  # Store only raw HTML - BeautifulSoup is not serializable
             "created_at": datetime.now().isoformat(),
-            "metadata": {"url": url, "size": len(markdown_content)}
+            "metadata": {
+                "url": url,
+                "html_size": len(response.text),
+                "encoding": response.encoding,
+                "skeleton": skeleton,
+                "markdown_outline": markdown_outline
+            }
         }
 
-        # Step 5: Format headings for display
-        heading_lines = []
-        for heading in headers_list:
-            indent = "  " * (heading['level'] - 1)
-            heading_lines.append(f"{indent}{'#' * heading['level']} {heading['text']} (line {heading['line']})")
-
-        headings_text = "\n".join(heading_lines) if heading_lines else "(No headings found)"
-
-        message = f"""✓ Fetched and converted page to markdown
+        message = f"""✓ Loaded web page
+Page ID: {page_id}
 URL: {url}
-Data ID: {data_id}
-Markdown size: {len(markdown_content)} characters
+HTML size: {len(response.text)} characters
 
-Found {len(headers_list)} heading(s):
-{headings_text}
+DOM Skeleton (structural overview):
+{skeleton}
 
-The full content is too large to display here.
-To extract a specific section, use:
-get_readable_web_section(data_id="{data_id}", heading_query="heading text to search for")
+Markdown Outline (content headings):
+{markdown_outline}
 
-This will return the full content from that heading until the next heading of the same or higher level."""
+Available extraction methods:
+- get_markdown_view(page_id="{page_id}") - Full markdown conversion
+- extract_markdown_section(page_id="{page_id}", heading_query="...") - Specific section
+- extract_with_css(page_id="{page_id}", selector="...", extract_type="text|html|attrs")
+- extract_with_xpath(page_id="{page_id}", xpath="...", extract_type="text|html|attrs")
+
+Also available on disk as '{full_path}' for local file processing using grep or python scripts.
+"""
 
         return Command(update={
-            "stored_data": {data_id: entry},
-             "messages": [
+            "stored_data": {page_id: page_entry},
+            "messages": [
                 ToolMessage(
-                    content=message,  # This is what the model sees
+                    content=message,
                     tool_call_id=runtime.tool_call_id
                 )
             ]
@@ -236,7 +121,7 @@ This will return the full content from that heading until the next heading of th
                 )
             ]
         })
-        
+
     except Exception as e:
         message = f"Error processing page: {str(e)}"
         return Command(update={
@@ -249,27 +134,111 @@ This will return the full content from that heading until the next heading of th
         })
 
 @tool
-def get_readable_web_section(data_id: str, heading_query: str, runtime: ToolRuntime[HyperfocusContext, HyperfocusState]) -> str:
-    """Extract a section of markdown content by providing the heading.
+def get_markdown_view(page_id: str, runtime: ToolRuntime) -> str:
+    """Convert a loaded web page to markdown format.
+
+    This provides a readable, text-based view of the page content.
+    The markdown is generated on-demand from the stored HTML.
 
     Args:
-        data_id: The data ID from readable_web_get
+        page_id: The page ID from load_web_page
+
+    Returns:
+        Markdown-formatted content with heading structure
+    """
+    try:
+        if not data_exists(runtime, page_id):
+            return f"Error: No page found with ID '{page_id}'. Use load_web_page first."
+
+        data = retrieve_data(runtime, page_id)
+        if not isinstance(data, dict) or 'content' not in data:
+            return f"Error: '{page_id}' is not a valid page object."
+
+        raw_html = data["content"]
+
+        if not isinstance(raw_html, str):
+            return f"Error: '{page_id}' does not contain HTML content."
+
+        # Convert to markdown
+        h = html2text.HTML2Text()
+        h.ignore_links = False
+        h.ignore_images = False
+        h.ignore_emphasis = False
+        h.unicode_snob = True
+        h.body_width = 0  # Don't wrap lines
+
+        markdown_content = h.handle(raw_html)
+
+        # Extract headings from markdown
+        doc = MarkdownAnalyzer.from_string(markdown_content)
+        headers_dict = doc.identify_headers()
+        headers_list = headers_dict.get('Header', [])
+
+        # Format headings for display
+        heading_lines = []
+        for heading in headers_list[:20]:  # Show first 20 headings
+            indent = "  " * (heading['level'] - 1)
+            heading_lines.append(f"{indent}{'#' * heading['level']} {heading['text']} (line {heading['line']})")
+
+        headings_text = "\n".join(heading_lines) if heading_lines else "(No headings found)"
+        if len(headers_list) > 20:
+            headings_text += f"\n  ... and {len(headers_list) - 20} more headings"
+
+        url = data["metadata"].get("url", "unknown")
+
+        if len(markdown_content) > 10000:
+            markdown_content = markdown_content[:10000] + "\n\n...(truncated due to max length)..."
+
+        return f"""✓ Markdown view of {url}
+Size: {len(markdown_content)} characters
+
+Headings structure:
+{headings_text}
+
+Full markdown content:
+{markdown_content}
+
+To extract a specific section, use:
+extract_markdown_section(page_id="{page_id}", heading_query="heading text")"""
+
+    except Exception as e:
+        return f"Error generating markdown view: {str(e)}"
+
+
+@tool
+def extract_markdown_section(page_id: str, heading_query: str, runtime: ToolRuntime) -> str:
+    """Extract a specific section from a loaded page's markdown view.
+
+    Args:
+        page_id: The page ID from load_web_page
         heading_query: The heading text to search for (case-insensitive, partial match)
 
     Returns:
-        String with the markdown content from the matched heading to the next same-level heading
+        Markdown content from the matched heading to the next same-level heading
     """
-
     try:
-        # Retrieve the stored markdown
-        if not data_exists(runtime, data_id):
-            return f"Error: No data found with ID '{data_id}'. Use readable_web_get first."
+        # Retrieve the stored page
+        if not data_exists(runtime, page_id):
+            return f"Error: No page found with ID '{page_id}'. Use load_web_page first."
 
-        data = retrieve_data(runtime, data_id)
+        data = retrieve_data(runtime, page_id)
         if not isinstance(data, dict) or 'content' not in data:
-            return f"Error: '{data_id}' is not markdown text."
+            return f"Error: '{page_id}' is not a valid page object."
 
-        markdown_text = data["content"]
+        raw_html = data["content"]
+
+        if not isinstance(raw_html, str):
+            return f"Error: '{page_id}' does not contain HTML content."
+
+        # Convert to markdown
+        h = html2text.HTML2Text()
+        h.ignore_links = False
+        h.ignore_images = False
+        h.ignore_emphasis = False
+        h.unicode_snob = True
+        h.body_width = 0  # Don't wrap lines
+
+        markdown_text = h.handle(raw_html)
 
         # Extract all headings
         doc = MarkdownAnalyzer.from_string(markdown_text)
@@ -313,10 +282,8 @@ def get_readable_web_section(data_id: str, heading_query: str, runtime: ToolRunt
 
         # Extract the section (line numbers are 1-indexed)
         if end_line is not None:
-            # Extract from start_line to end_line (exclusive)
             extracted_lines = lines[start_line - 1:end_line - 1]
         else:
-            # Extract from start_line to end of document
             extracted_lines = lines[start_line - 1:]
 
         extracted_content = '\n'.join(extracted_lines)
@@ -330,8 +297,6 @@ Content length: {len(extracted_content)} characters
 
         return result_message
 
-    except KeyError as e:
-        return f"Error: {str(e)}"
     except Exception as e:
         return f"Error extracting section: {str(e)}"
 
@@ -360,89 +325,16 @@ Content length: {len(extracted_content)} characters
 #     except Exception as e:
 #         return f"Error retrieving data: {str(e)}"
 
-@tool
-def load_page_for_navigation(url: str, runtime: ToolRuntime) -> Command:
-    """
-    Fetch a web page and store it in memory for subsequent navigation and extraction.
-
-    This function fetches a page, parses it with BeautifulSoup, generates a DOM skeleton,
-    and stores both the skeleton and the parsed page for later XPath/CSS queries.
-
-    Args:
-        url: The URL to fetch
-        page_id: Optional identifier for this page. If not provided, generates one from URL hash.
-
-    Returns:
-        A message with the page_id and DOM skeleton for reasoning about extraction
-    """
-    page_id = f"page_{hashlib.md5(url.encode()).hexdigest()[:8]}"
-
-    # Fetch the page
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
-    response = requests.get(url, headers=headers, timeout=30)
-    response.raise_for_status()
-
-    # Fix encoding issues - requests often defaults to ISO-8859-1 when it shouldn't
-    # If encoding is the default fallback, try apparent_encoding (chardet-based)
-    if response.encoding and response.encoding.lower() in ['iso-8859-1', 'latin-1', 'windows-1252']:
-        # These are fallback encodings, trust chardet's detection instead
-        detected_encoding = response.apparent_encoding
-        if detected_encoding:
-            response.encoding = detected_encoding
-
-    # Parse HTML and generate DOM skeleton
-    soup, skeleton = create_dom_skeleton(response.text)
-    skeleton_id = f"{page_id}_skeleton"
-
-    print(skeleton)
-
-    message = f"""✓ Loaded page into memory
-Page ID: {page_id}
-URL: {url}
-HTML size: {len(response.text)} characters
-
-DOM Skeleton (use this to design your CSS/XPath queries):
-{skeleton}
-
-To extract data from this page, use:
-- extract_with_css(page_id="{page_id}", selector="your css selector")
-- extract_with_xpath(page_id="{page_id}", xpath="your xpath query")
-"""
-    return Command(update={
-        "stored_data": {
-            page_id: {
-                "data_id": page_id,
-                "data_type": "soup",
-                "content": soup,
-                "created_at": datetime.now().isoformat(),
-                "metadata": {"url": url, "html_size": len(response.text)}
-            },
-            skeleton_id: {
-                "data_id": skeleton_id,
-                "data_type": "text",
-                "content": skeleton,
-                "created_at": datetime.now().isoformat(),
-                "metadata": {"url": url, "parent_page_id": page_id}
-            }
-        },
-        "messages": [
-            ToolMessage(
-                content=message,
-                tool_call_id=runtime.tool_call_id
-            )
-        ]
-    })
 
 
-@tool
+# @tool
 def extract_with_css(page_id: str, selector: str, extract_type: str, runtime: ToolRuntime) -> str:
-    """
-    Extract data from a stored page using a CSS selector.
+    """Extract data from a loaded page using CSS selectors.
+
+    Use the DOM skeleton from load_web_page to design your selectors.
 
     Args:
-        page_id: ID of the page stored with load_page_for_navigation
+        page_id: ID of the page from load_web_page
         selector: CSS selector query (e.g., "div.content h2", "#main-article")
         extract_type: What to extract - "text" (text content), "html" (outer HTML), or "attrs" (all attributes)
 
@@ -450,15 +342,19 @@ def extract_with_css(page_id: str, selector: str, extract_type: str, runtime: To
         Extracted data as text (may be JSON for attrs)
     """
     if not data_exists(runtime, page_id):
-        return f"Error: No page found with ID '{page_id}'. Use load_page_for_navigation first."
+        return f"Error: No page found with ID '{page_id}'. Use load_web_page first."
 
     data = retrieve_data(runtime, page_id)
     if not isinstance(data, dict) or "content" not in data:
         return f"Error: '{page_id}' is not a valid page object."
-    soup = data["content"]
 
-    if not isinstance(soup, BeautifulSoup):
-        return f"Error: '{page_id}' is not a BeautifulSoup page object."
+    raw_html = data["content"]
+
+    if not isinstance(raw_html, str):
+        return f"Error: '{page_id}' does not contain HTML content."
+
+    # Parse HTML on-demand with BeautifulSoup
+    soup = BeautifulSoup(raw_html, 'lxml')
 
     # Find elements matching the selector
     elements = soup.select(selector)
@@ -486,38 +382,34 @@ def extract_with_css(page_id: str, selector: str, extract_type: str, runtime: To
 
 @tool
 def extract_with_xpath(page_id: str, xpath: str, extract_type: str, runtime: ToolRuntime) -> str:
-    """
-    Extract data from a stored page using an XPath query.
+    """Extract data from a loaded page using XPath queries.
 
-    Note: BeautifulSoup uses CSS selectors internally, so complex XPath may not work.
-    For full XPath support, this uses lxml's xpath capabilities.
+    Use the markdown outline from load_web_page to find XPath expressions,
+    or design your own based on the DOM skeleton.
 
     Args:
-        page_id: ID of the page stored with load_page_for_navigation
+        page_id: ID of the page from load_web_page
         xpath: XPath query (e.g., "//div[@class='content']//h2", "//article[@id='main']")
-        extract_type: What to extract - "text" (text content) or "html" (outer HTML)
+        extract_type: What to extract - "text" (text content), "html" (outer HTML), or "attrs" (all attributes)
 
     Returns:
         Extracted data as text
     """
     if not data_exists(runtime, page_id):
-        return f"Error: No page found with ID '{page_id}'. Use load_page_for_navigation first."
+        return f"Error: No page found with ID '{page_id}'. Use load_web_page first."
 
     data = retrieve_data(runtime, page_id)
     if not isinstance(data, dict) or "content" not in data:
         return f"Error: '{page_id}' is not a valid page object."
-    soup = data["content"]
 
-    if not isinstance(soup, BeautifulSoup):
-        return f"Error: '{page_id}' is not a BeautifulSoup page object."
+    raw_html = data["content"]
 
-    # Convert to lxml for XPath support
+    if not isinstance(raw_html, str):
+        return f"Error: '{page_id}' does not contain HTML content."
+
+    # Parse with lxml for full XPath support
     try:
-
-        # Convert soup to lxml, preserving encoding
-        html_string = str(soup)
-        # Parse with proper encoding
-        tree = lxml_html.fromstring(html_string)
+        tree = lxml_html.fromstring(raw_html)
 
         # Execute XPath
         elements = tree.xpath(xpath)
@@ -543,8 +435,14 @@ def extract_with_xpath(page_id: str, xpath: str, extract_type: str, runtime: Too
             elif extract_type == "html":
                 html_str = etree.tostring(elem, encoding='unicode', method='html')
                 results.append(f"[{i}] {html_str}")
+            elif extract_type == "attrs":
+                if hasattr(elem, 'attrib'):
+                    attrs = dict(elem.attrib)
+                    results.append(f"[{i}] {attrs}")
+                else:
+                    results.append(f"[{i}] (no attributes)")
             else:
-                return f"Error: Unknown extract_type '{extract_type}'. Use 'text' or 'html'."
+                return f"Error: Unknown extract_type '{extract_type}'. Use 'text', 'html', or 'attrs'."
 
         result_text = "\n".join(results)
         return f"Found {len(elements)} element(s) matching '{xpath}':\n\n{result_text}"
@@ -553,6 +451,44 @@ def extract_with_xpath(page_id: str, xpath: str, extract_type: str, runtime: Too
         return f"Error executing XPath query: {str(e)}"
 
 @tool
+def lookup_with_grep(query: str, page_id: str, runtime: ToolRuntime) -> str:
+    """Perform a grep search on the web page HTML file.
+
+    This allows for quick text-based searches using regular expressions.
+
+    Args:
+        query: The grep query (regular expression)
+        page_id: The page ID from load_web_page
+    Returns:
+        Matching lines from the HTML file
+    """
+    file_path = f"{page_id}.html"
+    try:
+        with open(file_path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+
+        import re
+        pattern = re.compile(query, re.IGNORECASE)
+
+        matches = []
+        for i, line in enumerate(lines):
+            if pattern.search(line):
+                matches.append(f"[{i+1}] {line.strip()}")
+
+        if not matches:
+            return f"No matches found for query: {query}"
+
+        result_text = "\n".join(matches)
+        return f"Found {len(matches)} matching line(s) for query '{query}':\n\n{result_text}"
+
+    except FileNotFoundError:
+        return f"Error: HTML file '{file_path}' not found. Ensure the page has been loaded."
+    except re.error as e:
+        return f"Error: Invalid regular expression '{query}': {str(e)}"
+    except Exception as e:
+        return f"Error performing grep search: {str(e)}"
+    
+# @tool
 def download_html_and_return_structure(url: str, runtime: ToolRuntime) -> str:
     """
     Fetch a web page and stores it to disk, presenting a DOM structure overview. 
@@ -608,11 +544,13 @@ You may now operate on the file on disk at path '{file_path}' using your local t
 
 # LangChain tools list - all tools decorated with @tool
 WEB_TOOLS = [
-    # readable_web_get,
-    # get_readable_web_section,
-    # retrieve_stored_readable_web_section
-    # load_page_for_navigation,
-    # extract_with_css,
-    # extract_with_xpath,
-    download_html_and_return_structure
+    # Unified web scraping architecture
+    load_web_page,              # Main entry point - loads HTML once
+    get_markdown_view,          # Markdown view of loaded page
+    extract_markdown_section,   # Extract specific markdown section
+    # extract_with_css,           # Query with CSS selectors
+    extract_with_xpath,         # Query with XPath expressions
+
+    # Additional utility
+    # download_html_and_return_structure  # Download to disk for script processing
 ]

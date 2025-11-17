@@ -15,6 +15,6 @@ def get_base_prompt() -> str:
 def get_first_step_prompt() -> str:
     """Return the prompt to get the first step from the agent."""
     return (
-        "For data processing or scraping tasks, you should focus on using python scripts to handle the bulk of the work. "
-        "Start by using available tools to get an overview of the task and document structure, then write python scripts to process the data as needed."
+        "For data processing or scraping tasks that go beyond simple retrieval, you should focus on using python scripts to handle the bulk of the work. "
+        "Avoid making assumptions about what you know about the data, assume you know nothing and build a case based on evidence."
     )

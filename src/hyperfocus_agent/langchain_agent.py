@@ -4,7 +4,7 @@ This module contains the main agent factory using LangChain's create_agent API.
 """
 from langchain.agents import create_agent
 from langgraph.checkpoint.memory import InMemorySaver
-from langchain.agents.middleware import SummarizationMiddleware
+from langchain.agents.middleware import SummarizationMiddleware, ContextEditingMiddleware, ClearToolUsesEdit
 
 from .prompts import get_base_prompt
 from .model_config import ModelConfig
@@ -51,16 +51,25 @@ def create_hyperfocus_agent():
         # *CSV_TOOLS,
         *DIRECTORY_TOOLS,
         *FILE_TOOLS,
-        # *IMAGE_TOOLS,
+        *IMAGE_TOOLS,
         *SHELL_TOOLS,
         # *TASK_TOOLS,
         *WEB_TOOLS,
     ]
 
-    summarisation_middleware = SummarizationMiddleware(
-        model=config.local,
-        max_tokens_before_summary=20000,  # Trigger summarization at 20000 tokens
-        messages_to_keep=5,  # Keep last 5 messages after summary
+    # summarisation_middleware = SummarizationMiddleware(
+    #     model=config.local,
+    #     max_tokens_before_summary=20000,  # Trigger summarization at 20000 tokens
+    #     messages_to_keep=5,  # Keep last 5 messages after summary
+    # )
+
+    context_editing_middleware = ContextEditingMiddleware(
+        edits=[
+            ClearToolUsesEdit(
+                trigger=10000,
+                keep=3,
+            ),
+        ],
     )
 
     # Middleware order:
@@ -80,7 +89,8 @@ def create_hyperfocus_agent():
             strip_processed_images,
             dynamic_model_selection,
             log_tool_execution,
-            summarisation_middleware,
+            # summarisation_middleware,
+            context_editing_middleware,
         ],
         checkpointer=InMemorySaver(),
     )
