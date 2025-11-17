@@ -1828,6 +1828,16 @@ files = [
 requests = ">=2.0.1,<3.0.0"
 
 [[package]]
+name = "ripgrepy"
+version = "2.2.0"
+description = ""
+optional = false
+python-versions = "*"
+files = [
+    {file = "ripgrepy-2.2.0.tar.gz", hash = "sha256:4c43c61384f257660007acd271a5d8e4abe9be0b069c418d091f7299e080ca9d"},
+]
+
+[[package]]
 name = "six"
 version = "1.17.0"
 description = "Python 2 and 3 compatibility utilities"
@@ -2383,4 +2393,4 @@ cffi = ["cffi (>=1.17,<2.0)", "cffi (>=2.0.0b)"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.12,<3.14"
-content-hash = "61148231711bc4d371d8b8e583475901b38ed1e4878f77498931d51576decc7c"
+content-hash = "d779830dd2583de15f34ec3736f9a8150e75e5e624b07a4a016d91ce5902e6c7"

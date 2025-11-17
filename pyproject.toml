@@ -21,6 +21,7 @@ langgraph = "^1.0.3"
 langchain-openai = "^1.0.2"
 openinference-instrumentation-langchain = "^0.1.55"
 duckdb = "^1.4.2"
+ripgrepy = "^2.2.0"
 
 [build-system]
 requires = ["poetry-core"]
@@ -28,3 +29,4 @@ build-backend = "poetry.core.masonry.api"
 
 [tool.poetry.scripts]
 hyperfocus = "hyperfocus_agent.main:main"
+ocr = "hyperfocus_agent.ocr:main"

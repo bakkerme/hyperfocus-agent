@@ -8,10 +8,11 @@ from langchain.tools import tool, ToolRuntime
 from langchain_core.messages import ToolMessage, HumanMessage
 from langgraph.types import Command
 
+from hyperfocus_agent.langchain_state import HyperfocusState, HyperfocusContext
 from hyperfocus_agent.langchain_tools.task_tools import run_task
 
 from ..utils.image_utils import load_image_as_base64
-from .task_tools import execute_task
+from ..ocr import ocr_image
 
 @tool
 def load_image(file_path: str, runtime: ToolRuntime) -> ToolMessage | Command:
@@ -68,7 +69,7 @@ def load_image(file_path: str, runtime: ToolRuntime) -> ToolMessage | Command:
         return ToolMessage(content=f"Error loading image: {str(e)}", tool_call_id=runtime.tool_call_id)
 
 @tool
-def load_and_ocr_image(file_path: str, runtime: ToolRuntime) -> ToolMessage | Command:
+def load_and_ocr_image(file_path: str, runtime: ToolRuntime[HyperfocusContext, HyperfocusState]) -> ToolMessage:
     """Load an image file and perform OCR to extract text content.
 
     Supports both local file paths and remote URLs (http/https).
@@ -81,20 +82,18 @@ def load_and_ocr_image(file_path: str, runtime: ToolRuntime) -> ToolMessage | Co
         Extracted text content from the image
     """
     try:
-        task_output = execute_task("Perform OCR on the provided image. Return only the extracted text without additional commentary.",
-            image_path=file_path
-        )
+        # Use the shared OCR function from ocr.py
+        text = ocr_image(file_path)
+        return ToolMessage(content=text, tool_call_id=runtime.tool_call_id)
 
-        return ToolMessage(content=task_output, tool_call_id=runtime.tool_call_id)
-                
     except (FileNotFoundError, ValueError) as e:
         return ToolMessage(content=str(e), tool_call_id=runtime.tool_call_id)
     except Exception as e:
-        return ToolMessage(content=f"Error loading image: {str(e)}", tool_call_id=runtime.tool_call_id)
+        return ToolMessage(content=f"Error performing OCR: {str(e)}", tool_call_id=runtime.tool_call_id)
 
 
 # Export tools as a list for easy import
 IMAGE_TOOLS = [
-    load_image,
+    # load_image,
     load_and_ocr_image
 ]

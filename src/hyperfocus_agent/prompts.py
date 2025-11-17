@@ -15,11 +15,6 @@ def get_base_prompt() -> str:
 def get_first_step_prompt() -> str:
     """Return the prompt to get the first step from the agent."""
     return (
-        "Based on the user's request, provide the first step you will take to begin "
-        "working towards their objective. Outline your initial action clearly and concisely.\n"
-        "1. Interpret the user's request carefully.\n"
-        "2. List out your plan of action to achieve the user's objective.\n"
-        "3. Execute your plan using the available tools, one step at a time.\n"
-        "4. After each tool execution, analyze the results and adjust your plan as necessary.\n"
-        "5. Keep the user informed with regular updates on your progress and next steps.\n"
+        "For data processing or scraping tasks, you should focus on using python scripts to handle the bulk of the work. "
+        "Start by using available tools to get an overview of the task and document structure, then write python scripts to process the data as needed."
     )

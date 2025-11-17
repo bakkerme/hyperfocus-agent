@@ -4,6 +4,7 @@ This module contains the main agent factory using LangChain's create_agent API.
 """
 from langchain.agents import create_agent
 from langgraph.checkpoint.memory import InMemorySaver
+from langchain.agents.middleware import SummarizationMiddleware
 
 from .prompts import get_base_prompt
 from .model_config import ModelConfig
@@ -15,12 +16,13 @@ from .langchain_tools.image_tools import IMAGE_TOOLS
 from .langchain_tools.shell_tools import SHELL_TOOLS
 from .langchain_tools.task_tools import TASK_TOOLS
 from .langchain_tools.web_tools import WEB_TOOLS
-from .langchain_middleware import (
+from .middleware.image_middleware import (
     initialize_models,
     dynamic_model_selection,
     strip_processed_images,
-    log_tool_execution,
 )
+from .middleware.logging_middleware import log_tool_execution
+from .middleware.context_middleware import filter_old_script_versions
 
 def create_hyperfocus_agent():
     """Create the Hyperfocus agent with all middleware and tools.
@@ -55,17 +57,31 @@ def create_hyperfocus_agent():
         *WEB_TOOLS,
     ]
 
+    summarisation_middleware = SummarizationMiddleware(
+        model=config.local,
+        max_tokens_before_summary=20000,  # Trigger summarization at 20000 tokens
+        messages_to_keep=5,  # Keep last 5 messages after summary
+    )
+
     # Middleware order:
-    # 1. strip_processed_images - Removes images after they've been processed
-    # 2. dynamic_model_selection - Routes to multimodal LLM when images detected
-    # 3. log_tool_execution - Logs tool calls and inputs for observability
+    # 1. filter_old_script_versions - Removes old create_python_script calls for same path
+    # 2. strip_processed_images - Removes images after they've been processed
+    # 3. dynamic_model_selection - Routes to multimodal LLM when images detected
+    # 4. log_tool_execution - Logs tool calls and inputs for observability
+    # 5. SummarizationMiddleware - Summarizes old messages when context gets too large
     agent = create_agent(
         model=config.local,  # Default model (will be overridden by middleware)
         tools=all_tools,
         system_prompt=system_prompt,
         state_schema=HyperfocusState,
         context_schema=HyperfocusContext,
-        middleware=[strip_processed_images, dynamic_model_selection, log_tool_execution],
+        middleware=[
+            filter_old_script_versions,
+            strip_processed_images,
+            dynamic_model_selection,
+            log_tool_execution,
+            summarisation_middleware,
+        ],
         checkpointer=InMemorySaver(),
     )
 

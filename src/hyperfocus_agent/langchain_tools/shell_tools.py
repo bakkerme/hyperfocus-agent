@@ -20,7 +20,8 @@ def execute_shell_command(command: str) -> str:
         - Any valid shell command (e.g., ls, cat, echo, grep, etc.)
         - Python scripts via `python script.py`
         - System utilities (e.g., curl, wget, etc.)
-        - Python libraries like beautifulsoup4 can be used for html scraping and parsing
+        - ocr /path/to/image.jpg
+        - ocr https://example.com/screenshot.png
 
     Args:
         command: The shell command to execute
@@ -36,7 +37,7 @@ def execute_shell_command(command: str) -> str:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            timeout=30  # 30 second timeout to prevent hanging
+            # timeout=30  # 30 second timeout to prevent hanging
         )
 
         output = result.stdout.strip()

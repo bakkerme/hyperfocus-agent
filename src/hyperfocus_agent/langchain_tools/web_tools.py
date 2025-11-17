@@ -9,24 +9,26 @@ from langgraph.types import Command
 from langchain_core.messages import ToolMessage
 from bs4 import BeautifulSoup, Tag
 from lxml import etree, html as lxml_html
+from ..utils.html_utils import preprocess_html_for_schema, get_markdown_outline_from_html
 
 from ..langchain_state import DataEntry, HyperfocusState, HyperfocusContext, data_exists, retrieve_data
 
 
-def create_dom_skeleton(html_content: str, max_depth: int = 10) -> tuple[BeautifulSoup, str]:
+def create_dom_skeleton(html_content: str, max_depth: int = 10, compact_threshold: int = 3) -> tuple[BeautifulSoup, str]:
     """
     Parse HTML and generate a DOM skeleton for reasoning about structure.
-    
+
     Args:
         html_content: Raw HTML string to parse
         max_depth: Maximum depth to traverse in the DOM tree
-        
+        compact_threshold: Minimum number of consecutive identical siblings to group together
+
     Returns:
         Tuple of (BeautifulSoup object, skeleton string)
     """
     # Parse with BeautifulSoup
     soup = BeautifulSoup(html_content, 'lxml')
-    
+
     # Generate skeleton
     lines = []
 
@@ -48,11 +50,24 @@ def create_dom_skeleton(html_content: str, max_depth: int = 10) -> tuple[Beautif
             sig += f" [{', '.join(notable_attrs[:2])}]"
         return sig
 
+    def is_notable_element(tag: Tag) -> bool:
+        """Check if element has notable attributes that make it worth showing separately"""
+        return bool(tag.get('id')) or bool(tag.name in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6'])
+
+    def get_compact_signature(tag: Tag) -> str:
+        """Get a simplified signature for grouping (name + child count, ignore other attrs)"""
+        children = [
+            child for child in tag.children
+            if isinstance(child, Tag) and child.name not in ['script', 'style', 'meta', 'link', 'noscript']
+        ]
+        return f"{tag.name}:{len(children)}"
+
     def traverse(element: Tag, depth: int = 0, prefix: str = "") -> None:
         if depth > max_depth:
             return
         if element.name in ['script', 'style', 'meta', 'link', 'noscript']:
             return
+
         sig = get_element_signature(element)
         children = [
             child for child in element.children
@@ -68,14 +83,64 @@ def create_dom_skeleton(html_content: str, max_depth: int = 10) -> tuple[Beautif
             if heading_text:
                 line += f' → "{heading_text}"'
         lines.append(line)
-        for i, child in enumerate(children):
+
+        # Group consecutive identical children for compact output
+        i = 0
+        while i < len(children):
+            child = children[i]
+
+            # Check if this child should be grouped with consecutive siblings
+            if not is_notable_element(child):
+                compact_sig = get_compact_signature(child)
+
+                # Count consecutive identical siblings
+                group_count = 1
+                while (i + group_count < len(children) and
+                       not is_notable_element(children[i + group_count]) and
+                       get_compact_signature(children[i + group_count]) == compact_sig):
+                    group_count += 1
+
+                # If we have enough identical siblings, output a grouped line
+                if group_count >= compact_threshold:
+                    is_last = (i + group_count) >= len(children)
+                    child_prefix = "└── " if is_last else "├── "
+                    child_sig = get_element_signature(child)
+
+                    # Get the child's children to show structure inline
+                    grandchildren = [
+                        gc for gc in child.children
+                        if isinstance(gc, Tag) and gc.name not in ['script', 'style', 'meta', 'link', 'noscript']
+                    ]
+
+                    if grandchildren:
+                        # Show child structure inline for grouped elements
+                        # Check if all grandchildren are the same type
+                        gc_sigs = [get_compact_signature(gc) for gc in grandchildren]
+                        if len(set(gc_sigs)) == 1:
+                            # All grandchildren are identical - show compactly
+                            gc_name = grandchildren[0].name
+                            grouped_line = f"{indent}  {child_prefix}{child_sig} [{len(grandchildren)} {gc_name}] × {group_count}"
+                        else:
+                            # Mixed grandchildren - just show count
+                            grouped_line = f"{indent}  {child_prefix}{child_sig} × {group_count}"
+                    else:
+                        grouped_line = f"{indent}  {child_prefix}{child_sig} × {group_count}"
+
+                    lines.append(grouped_line)
+
+                    # Skip processing these grouped children individually
+                    i += group_count
+                    continue
+
+            # Process child normally (not grouped)
             is_last = i == len(children) - 1
             child_prefix = "└── " if is_last else "├── "
             traverse(child, depth + 1, child_prefix)
+            i += 1
 
     traverse(soup.html if soup.html else soup)
     skeleton = "\n".join(lines)
-    
+
     return soup, skeleton
 
 @tool
@@ -294,89 +359,6 @@ Content length: {len(extracted_content)} characters
 #         return f"Error: {str(e)}"
 #     except Exception as e:
 #         return f"Error retrieving data: {str(e)}"
-
-def get_readable_web_section(data_id: str, heading_query: str) -> str:
-    """
-    Extract a section of markdown content based on a heading query.
-
-    Finds the heading that matches the query (case-insensitive) and extracts
-    all content from that heading until the next heading of the same or higher level.
-
-    Args:
-        data_id: The data ID from readable_web_get
-        heading_query: The heading text to search for (case-insensitive, partial match)
-
-    Returns:
-        The markdown content from the matched heading to the next same-level heading
-
-    Raises:
-        ValueError: If data_id not found or no matching heading found
-    """
-    # Retrieve the stored markdown
-    if not data_exists(data_id):
-        return f"Error: No data found with ID '{data_id}'. Use readable_web_get first."
-
-    markdown_text = retrieve_data(data_id)
-
-    if not isinstance(markdown_text, str):
-        return f"Error: '{data_id}' is not markdown text."
-
-    # Extract all headings
-    doc = MarkdownAnalyzer.from_string(markdown_text)
-    headers_dict = doc.identify_headers()
-    headers = headers_dict.get('Header', [])
-
-    if not headers:
-        return "Error: No headings found in markdown content"
-
-    # Find the matching heading (case-insensitive partial match)
-    query_lower = heading_query.lower()
-    matched_heading = None
-    matched_index = -1
-
-    for i, heading in enumerate(headers):
-        if query_lower in heading['text'].lower():
-            matched_heading = heading
-            matched_index = i
-            break
-
-    if not matched_heading:
-        available_headings = "\n".join([f"  - {h['text']}" for h in headers[:10]])
-        if len(headers) > 10:
-            available_headings += f"\n  ... and {len(headers) - 10} more"
-        return f"Error: No heading found matching '{heading_query}'.\n\nAvailable headings:\n{available_headings}"
-
-    # Find the end line (next heading of same or higher level)
-    start_line = matched_heading['line']
-    start_level = matched_heading['level']
-    end_line = None
-
-    for i in range(matched_index + 1, len(headers)):
-        next_heading = headers[i]
-        if next_heading['level'] <= start_level:
-            end_line = next_heading['line']
-            break
-
-    # Split markdown into lines
-    lines = markdown_text.split('\n')
-
-    # Extract the section (line numbers are 1-indexed)
-    if end_line is not None:
-        # Extract from start_line to end_line (exclusive)
-        extracted_lines = lines[start_line - 1:end_line - 1]
-    else:
-        # Extract from start_line to end of document
-        extracted_lines = lines[start_line - 1:]
-
-    extracted_content = '\n'.join(extracted_lines)
-
-    return f"""✓ Extracted section: {matched_heading['text']}
-Level: {matched_heading['level']}
-Lines: {start_line} to {end_line if end_line else 'end'}
-Content length: {len(extracted_content)} characters
-
-{extracted_content}"""
-
 
 @tool
 def load_page_for_navigation(url: str, runtime: ToolRuntime) -> Command:
@@ -598,28 +580,31 @@ def download_html_and_return_structure(url: str, runtime: ToolRuntime) -> str:
         if detected_encoding:
             response.encoding = detected_encoding
 
+    html = preprocess_html_for_schema(response.text)
+
     # Save the HTML content to a file
     file_path = f"{page_id}.html"
     with open(file_path, 'w', encoding=response.encoding) as f:
         f.write(response.text)
 
     # Parse HTML and generate DOM skeleton
-    _, skeleton = create_dom_skeleton(response.text)
+    # _, skeleton = create_dom_skeleton(response.text)
+    # print(skeleton)
 
-    print(skeleton)
+    markdown_outline = get_markdown_outline_from_html(response.text)
+    print(markdown_outline)
 
     message = f"""✓ Page downloaded and stored as {file_path}
 HTML size: {len(response.text)} characters
 
-DOM Skeleton
-{skeleton}
+Document Outline in Markdown:
+{markdown_outline}
 
 You may now operate on the file on disk at path '{file_path}' using your local tools, including create_python_script.
 """
+# DOM Skeleton
+# {skeleton}
     return message
-
-
-
 
 # LangChain tools list - all tools decorated with @tool
 WEB_TOOLS = [

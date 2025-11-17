@@ -38,7 +38,7 @@ class ModelCredentials:
     def to_chat_model(
         self, 
         streaming: bool = True, 
-        temperature: float = 0.0,
+        temperature: float = 0.7,
         callbacks: Optional[list] = None
     ) -> ChatOpenAI:
         """Create a ChatOpenAI instance from these credentials.
@@ -70,12 +70,15 @@ class ModelConfig:
     router_threshold: int
     
     @classmethod
-    def from_environment(cls) -> 'ModelConfig':
+    def from_environment(cls, verbose: bool = True) -> 'ModelConfig':
         """Load all model configurations from environment variables.
-        
+
+        Args:
+            verbose: Whether to print initialization messages (default: True)
+
         Raises:
             ValueError: If required credentials are missing
-            
+
         Returns:
             Configured ModelConfig instance
         """
@@ -83,44 +86,45 @@ class ModelConfig:
         local_creds = ModelCredentials.from_env("LOCAL")
         remote_creds = ModelCredentials.from_env("REMOTE")
         multimodal_creds = ModelCredentials.from_env("MULTIMODAL")
-        
+
         # Validate required
         if not local_creds:
             raise ValueError(
                 "LOCAL_OPENAI_BASE_URL, LOCAL_OPENAI_API_KEY, and LOCAL_OPENAI_MODEL "
                 "environment variables must be set."
             )
-        
+
         if not remote_creds:
             raise ValueError(
                 "REMOTE_OPENAI_BASE_URL, REMOTE_OPENAI_API_KEY, and REMOTE_OPENAI_MODEL "
                 "environment variables must be set."
             )
-        
+
         # Parse router threshold
         router_threshold = 10000
         threshold_str = os.getenv("LLM_ROUTER_THRESHOLD")
         if threshold_str and threshold_str.isdigit():
             router_threshold = int(threshold_str)
-        
+
         # Create models with streaming callback
         stream_handler = StreamingStdOutCallbackHandler()
-        
+
         local_model = local_creds.to_chat_model(callbacks=[stream_handler])
         remote_model = remote_creds.to_chat_model(callbacks=[stream_handler])
         multimodal_model = (
             multimodal_creds.to_chat_model(callbacks=[stream_handler])
-            if multimodal_creds 
+            if multimodal_creds
             else None
         )
-        
-        # Print configuration
-        print(f"Initializing agent...")
-        print(f"  Local: {local_creds.base_url} / {local_creds.model}")
-        print(f"  Remote: {remote_creds.base_url} / {remote_creds.model}")
-        if multimodal_creds:
-            print(f"  Multimodal: {multimodal_creds.base_url} / {multimodal_creds.model}")
-        
+
+        # Print configuration only if verbose
+        if verbose:
+            print(f"Initializing agent...")
+            print(f"  Local: {local_creds.base_url} / {local_creds.model}")
+            print(f"  Remote: {remote_creds.base_url} / {remote_creds.model}")
+            if multimodal_creds:
+                print(f"  Multimodal: {multimodal_creds.base_url} / {multimodal_creds.model}")
+
         return cls(
             local=local_model,
             remote=remote_model,
