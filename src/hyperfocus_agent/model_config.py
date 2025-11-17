@@ -38,8 +38,8 @@ class ModelCredentials:
     def to_chat_model(
         self, 
         streaming: bool = True, 
-        temperature: float = 0.7,
-        callbacks: Optional[list] = None
+        temperature: float = 0.5,
+        callbacks: list | None = None
     ) -> ChatOpenAI:
         """Create a ChatOpenAI instance from these credentials.
         
@@ -58,6 +58,7 @@ class ModelCredentials:
             temperature=temperature,
             streaming=streaming,
             callbacks=callbacks or [],
+            reasoning_effort="medium",
         )
 
 
@@ -66,7 +67,7 @@ class ModelConfig:
     """Complete model configuration for Hyperfocus Agent."""
     local: ChatOpenAI
     remote: ChatOpenAI
-    multimodal: Optional[ChatOpenAI]
+    multimodal: ChatOpenAI | None
     router_threshold: int
     
     @classmethod
