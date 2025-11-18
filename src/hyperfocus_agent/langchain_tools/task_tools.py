@@ -272,31 +272,32 @@ def _build_task_messages(
     
     Supports text-only, multimodal, and combined inputs.
     """
-    content_parts = []
     
     # 1. Build prompt text with data
-    prompt_text = prompt
+    data_to_process = ""
     
     if data_id:
         data = _load_and_format_data(runtime, data_id)
-        prompt_text += f"\n\nData to process:\n{data}"
+        data_to_process = data
     elif data_text:
-        prompt_text += f"\n\nData to process:\n{data_text}"
-    
-    content_parts.append({"type": "text", "text": prompt_text})
-    
+        data_to_process = data_text
+
+    messages = [
+        HumanMessage(content=prompt),
+        HumanMessage(content=data_to_process),
+    ]
+
     # 2. Add image if provided
     if image_path:
         image_data = load_image_as_base64(image_path)
-        content_parts.append({
+        messages.append(HumanMessage(content={
             "type": "image_url",
             "image_url": {
                 "url": f"data:{image_data['mime_type']};base64,{image_data['base64_data']}"
             }
-        })
+        }))
     
-    return [HumanMessage(content=content_parts)]
-
+    return messages
 
 def _load_and_format_data(runtime: ToolRuntime[HyperfocusContext, HyperfocusState], data_id: str) -> str:
     """Load stored data and format it appropriately based on type.

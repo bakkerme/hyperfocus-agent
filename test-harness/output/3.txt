@@ -1,0 +1,22 @@
+Qwen Next 70b
+
+[15 runs] Success: 15 | Failures: 0 | Rate: 100.0% | Avg: 192.41s ± 118.99s
+
+============================================================
+FINAL RESULTS (15 total runs)
+  Successes: 15
+  Failures:  0
+  Success Rate: 100.00%
+
+  Timing (all runs):
+    Average: 192.412s
+    StdDev:  118.988s
+    Min:     111.303s
+    Max:     603.710s
+  Timing (successes - 15 runs): avg 192.412s ± 118.988s
+============================================================
+
+web_load_web_page,              # Main entry point - loads HTML once
+web_get_markdown_view,          # Markdown view of loaded page
+web_extract_with_xpath,         # Query with XPath expressions
+web_lookup_with_grep,           # Grep search on saved HTML file
