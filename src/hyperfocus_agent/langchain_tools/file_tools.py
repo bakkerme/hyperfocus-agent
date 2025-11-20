@@ -167,10 +167,18 @@ def create_python_script(path: str, content: str) -> str:
     Returns:
         Confirmation message
     """
-    with open(path, 'w', encoding='utf-8') as f:
-        f.write(content)
+    import os
+    try:
+        directory = os.path.dirname(path)
+        if directory:
+            os.makedirs(directory, exist_ok=True)
 
-    return f"Python script '{path}' created with {len(content)} characters."
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(content)
+
+        return f"Python script '{path}' created with {len(content)} characters."
+    except Exception as e:
+        return f"Error creating python script '{path}': {str(e)}"
 
 # Export tools as a list for easy import
 FILE_TOOLS = [

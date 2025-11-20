@@ -6,13 +6,18 @@ OCR on images using multimodal LLMs.
 Usage as CLI:
     ocr /path/to/image.jpg
     ocr https://example.com/screenshot.png
+    ocr /path/to/image.jpg --prompt "Focus on handwritten totals"
 
 Usage as Python function:
     from hyperfocus_agent.ocr import ocr_image
 
     text = ocr_image('/path/to/image.jpg')
     print(text)
+
+    text = ocr_image('/path/to/image.jpg', prompt_instructions="Only capture the receipt total")
+    print(text)
 """
+import argparse
 import sys
 from typing import Optional
 
@@ -24,7 +29,11 @@ from .model_config import ModelConfig
 from .utils.image_utils import load_image_as_base64
 
 
-def ocr_image(file_path: str, timeout: int = 30) -> str:
+def ocr_image(
+    file_path: str,
+    timeout: int = 30,
+    prompt_instructions: Optional[str] = None,
+) -> str:
     """Perform OCR on an image file and extract text content.
 
     Supports both local file paths and remote URLs (http/https).
@@ -33,6 +42,7 @@ def ocr_image(file_path: str, timeout: int = 30) -> str:
     Args:
         file_path: Path to the image file (local path or URL)
         timeout: Timeout in seconds for remote image fetches (default: 30)
+        prompt_instructions: Optional extra instructions appended to the OCR prompt
 
     Returns:
         Extracted text content from the image
@@ -96,6 +106,14 @@ def ocr_image(file_path: str, timeout: int = 30) -> str:
     )
 
     # Build message with image
+    prompt_text = (
+        "Extract all text from this image. If there is no text, respond with nothing."
+    )
+    if prompt_instructions:
+        prompt_text = (
+            f"{prompt_text}\n{prompt_instructions.strip()}"
+        )
+
     message = HumanMessage(
         content=[
             {
@@ -106,7 +124,7 @@ def ocr_image(file_path: str, timeout: int = 30) -> str:
             },
             {
                 "type": "text",
-                "text": "Extract all text from this image. If there is no text, respond with nothing."
+                "text": prompt_text
             }
         ]
     )
@@ -132,23 +150,35 @@ def main() -> None:
         ocr /path/to/image.jpg
         ocr https://example.com/screenshot.png
     """
-    if len(sys.argv) < 2:
-        print("Usage: ocr <image_path>", file=sys.stderr)
-        print("", file=sys.stderr)
-        print("Perform OCR on an image file and extract text content.", file=sys.stderr)
-        print("Supports local files and URLs (http/https).", file=sys.stderr)
-        print("", file=sys.stderr)
-        print("Examples:", file=sys.stderr)
-        print("  ocr /path/to/receipt.jpg", file=sys.stderr)
-        print("  ocr https://example.com/document.png", file=sys.stderr)
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        prog="ocr",
+        description="Perform OCR on an image file or URL and extract text content.",
+    )
+    parser.add_argument(
+        "image_path",
+        help="Path or URL of the image to process",
+    )
+    parser.add_argument(
+        "--prompt",
+        dest="prompt_instructions",
+        help="Optional extra instructions appended to the OCR prompt.",
+    )
+    parser.add_argument(
+        "--timeout",
+        type=int,
+        default=30,
+        help="Timeout in seconds for remote image fetches (default: 30).",
+    )
 
-    # Join all arguments after 'ocr' to handle URLs with spaces
-    image_path = ' '.join(sys.argv[1:])
+    args = parser.parse_args()
 
     try:
-        print(f"→ Processing: {image_path}", file=sys.stderr)
-        text = ocr_image(image_path)
+        print(f"→ Processing: {args.image_path}", file=sys.stderr)
+        text = ocr_image(
+            args.image_path,
+            timeout=args.timeout,
+            prompt_instructions=args.prompt_instructions,
+        )
         print(text)
 
     except FileNotFoundError as e:

@@ -23,6 +23,7 @@ def load_image(file_path: str, runtime: ToolRuntime) -> ToolMessage | Command:
 
     Args:
         file_path: Path to the image file (local path or URL)
+        prompt_instructions: Optional extra instructions appended to the OCR prompt
 
     Returns:
         Confirmation message that image was loaded successfully
@@ -69,7 +70,11 @@ def load_image(file_path: str, runtime: ToolRuntime) -> ToolMessage | Command:
         return ToolMessage(content=f"Error loading image: {str(e)}", tool_call_id=runtime.tool_call_id)
 
 @tool
-def load_and_ocr_image(file_path: str, runtime: ToolRuntime[HyperfocusContext, HyperfocusState]) -> ToolMessage:
+def load_and_ocr_image(
+    file_path: str,
+    runtime: ToolRuntime[HyperfocusContext, HyperfocusState],
+    prompt_instructions: str | None = None,
+) -> ToolMessage:
     """Load an image file and perform OCR to extract text content.
 
     Supports both local file paths and remote URLs (http/https).
@@ -83,7 +88,7 @@ def load_and_ocr_image(file_path: str, runtime: ToolRuntime[HyperfocusContext, H
     """
     try:
         # Use the shared OCR function from ocr.py
-        text = ocr_image(file_path)
+        text = ocr_image(file_path, prompt_instructions=prompt_instructions)
         return ToolMessage(content=text, tool_call_id=runtime.tool_call_id)
 
     except (FileNotFoundError, ValueError) as e:

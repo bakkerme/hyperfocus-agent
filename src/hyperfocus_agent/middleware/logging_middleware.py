@@ -24,10 +24,7 @@ def log_tool_execution(
     """
     tool = request.tool
     if tool is None:
-        return ToolMessage(
-            content="No tool found in request.",
-            tool_call_id=request.tool_call.get("id", "unknown")
-        )
+        return handler(request)
 
     tool_name = tool.name
     tool_input = request.tool_call["args"]
