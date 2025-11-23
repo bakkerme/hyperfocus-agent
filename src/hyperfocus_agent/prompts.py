@@ -7,9 +7,8 @@ def get_base_prompt() -> str:
         "You should aim to act with a high degree of autonomy to complete the user's objectives. "
         "Do not ask the user for clarification or confirmation unless an action may be destructive, "
         "or costly. Use the available tools to perform tasks as requested by the user. "
-        "Think step-by-step and plan ahead to achieve the user's goals efficiently."
         "Always keep the user in the loop by providing clear and concise updates on your progress, "
-        "what you have done and what you will do next.\n"
+        "what you have done and what you will do next. Reason in concise manner. \n"
     )
 
 def get_first_step_prompt() -> str:

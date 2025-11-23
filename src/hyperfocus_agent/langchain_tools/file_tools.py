@@ -34,6 +34,8 @@ def read_file(path: str, offset: int = 0, limit: int = 1024) -> str:
         import os
         file_size = os.path.getsize(path)
         return f"Error: '{path}' is a binary file ({file_size} bytes). Cannot read as text. Use image analysis tools for images or other specialized tools for binary files."
+    except FileNotFoundError:
+        return f"Error: File '{path}' not found."
 
 @tool
 def grep_file(path: str, search_string: str, case_sensitive: bool = False, max_lines: int = 10) -> str:

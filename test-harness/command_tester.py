@@ -8,6 +8,7 @@ import sys
 import argparse
 import time
 import statistics
+import os
 from typing import Tuple
 
 
@@ -77,7 +78,8 @@ def main():
     iterations = 15
     command = "/home/brandon/sources/hyperfocus-agent/scripts/run-docker.sh dev-prompt 'Load pikachu.jpg and describe the card content, then look up the card symbol code (it will be a small string like 'cp4') and look it up in the provided website and include the set name alongside the card content. Make sure to get an exact match on the code, since there are sets and subsets that have similar codes. http://asset-server:8080/pokemon.html'"
     search = '151'
-    timeout = 600
+    # timeout = 600
+    timeout = 120
     verbose = True
 
     print(f"Command: {command}")
@@ -90,6 +92,14 @@ def main():
     durations = []  # all runs
     durations_success = []  # successful runs
     durations_failure = []  # failed runs
+
+    # Setup output directory
+    model_name = os.environ.get("LOCAL_OPENAI_MODEL", "unknown_model")
+    # Sanitize model name for directory usage (replace slashes)
+    safe_model_name = model_name.replace("/", "_")
+    output_dir = os.path.join("./output", safe_model_name)
+    os.makedirs(output_dir, exist_ok=True)
+    print(f"Logging output to: {output_dir}")
 
     try:
         while iterations == 0 or iteration < iterations:
@@ -105,6 +115,11 @@ def main():
             t1 = time.perf_counter()
             dur = t1 - t0
             durations.append(dur)
+
+            # Log output to file
+            output_file = os.path.join(output_dir, f"{iteration}.txt")
+            with open(output_file, "w") as f:
+                f.write(output)
 
             # Update counters
             if success:

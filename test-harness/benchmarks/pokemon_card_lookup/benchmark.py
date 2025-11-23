@@ -1,0 +1,33 @@
+from lib.benchmark_base import BenchmarkBase
+from typing import Any
+
+class Benchmark(BenchmarkBase):
+    def __init__(self):
+        # We assume the assets are in the same directory as this file, under assets/
+        # But the base class expects the assets_dir path.
+        # We can calculate it relative to this file.
+        import os
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        assets_dir = os.path.join(base_dir, "assets")
+        super().__init__("pokemon_card_lookup", assets_dir)
+
+    def run(self, runner: Any, model: str, prompt_version: str) -> str:
+        # The prompt from command_tester.py
+        prompt = (
+            "Load pikachu.jpg and describe the card content, then look up the card symbol code "
+            "(it will be a small string like 'cp4') and look it up in the provided website and "
+            "include the set name alongside the card content. Make sure to get an exact match on "
+            "the code, since there are sets and subsets that have similar codes. "
+            "http://asset-server:8080/pokemon.html"
+        )
+
+        print(f"Using prompt {prompt}\n")
+        
+        # Run the agent via the runner
+        # We pass the input directory which contains pikachu.jpg
+        output = runner.run(prompt, self.input_path)
+        return output
+
+    def verify(self, output: str) -> bool:
+        # Verification logic from command_tester.py: search for '151'
+        return '151' in output

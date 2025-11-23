@@ -79,7 +79,7 @@ def create_hyperfocus_agent():
     # 4. log_tool_execution - Logs tool calls and inputs for observability
     # 5. SummarizationMiddleware - Summarizes old messages when context gets too large
     agent = create_agent(
-        model=config.local,  # Default model (will be overridden by middleware)
+        model=config.local,  # Default model (can be overridden by middleware)
         tools=all_tools,
         system_prompt=system_prompt,
         state_schema=HyperfocusState,

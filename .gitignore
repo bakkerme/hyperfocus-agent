@@ -2,3 +2,7 @@ __pycache__
 .envrc
 
 workspace
+
+test-harness/output
+benchmark-config.yml
+benchmark-config.yaml

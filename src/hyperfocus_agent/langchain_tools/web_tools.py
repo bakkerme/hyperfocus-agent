@@ -18,6 +18,7 @@ from ..utils.html_utils import preprocess_html_for_schema, get_markdown_outline_
 
 from ..langchain_state import DataEntry, HyperfocusState, HyperfocusContext, data_exists, retrieve_data
 
+    # - web_extract_with_xpath() - Query with XPath expressions
 @tool
 def web_load_web_page(url: str, runtime: ToolRuntime) -> Command:
     """Load a web page and store it for multiple extraction methods.
@@ -31,7 +32,6 @@ def web_load_web_page(url: str, runtime: ToolRuntime) -> Command:
     - web_get_markdown_view() - Get full markdown conversion
     - web_extract_markdown_section() - Extract specific markdown section
     - web_extract_with_css() - Query with CSS selectors
-    - web_extract_with_xpath() - Query with XPath expressions
 
     Args:
         url: The URL to fetch
@@ -100,11 +100,11 @@ Available extraction methods:
 - web_get_markdown_view(page_id="{page_id}") - Full markdown conversion
 - web_lookup_with_grep(page_id="{page_id}", query="...", context_lines=3) - Grep search on saved HTML
 - web_extract_with_css(page_id="{page_id}", selector="...", extract_type="text|html|attrs")
-- web_extract_with_xpath(page_id="{page_id}", xpath="...", extract_type="text|html|attrs")
 
 Also available on disk as '{full_path}' for local file processing using grep or python scripts.
 """
 # - web_extract_markdown_section(page_id="{page_id}", heading_query="...") - Specific section
+# - web_extract_with_xpath(page_id="{page_id}", xpath="...", extract_type="text|html|attrs")
 # Markdown Outline (content headings):
 # {markdown_outline}
 
@@ -391,76 +391,76 @@ def web_extract_with_css(page_id: str, selector: str, extract_type: str, runtime
     return f"Found {len(elements)} element(s) matching '{selector}':\n\n{result_text}"
 
 
-@tool
-def web_extract_with_xpath(page_id: str, xpath: str, extract_type: str, runtime: ToolRuntime) -> str:
-    """Extract data from a loaded page using XPath queries.
+# @tool
+# def web_extract_with_xpath(page_id: str, xpath: str, extract_type: str, runtime: ToolRuntime) -> str:
+#     """Extract data from a loaded page using XPath queries.
 
-    Use the markdown outline from web_load_web_page to find XPath expressions,
-    or design your own based on the DOM skeleton.
+#     Use the markdown outline from web_load_web_page to find XPath expressions,
+#     or design your own based on the DOM skeleton.
 
-    Args:
-        page_id: ID of the page from web_load_web_page
-        xpath: XPath query (e.g., "//div[@class='content']//h2", "//article[@id='main']")
-        extract_type: What to extract - "markdown" (markdown content), "html" (outer HTML), or "attrs" (all attributes)
+#     Args:
+#         page_id: ID of the page from web_load_web_page
+#         xpath: XPath query (e.g., "//div[@class='content']//h2", "//article[@id='main']")
+#         extract_type: What to extract - "markdown" (markdown content), "html" (outer HTML), or "attrs" (all attributes)
 
-    Returns:
-        Extracted data as a string
-    """
-    if not data_exists(runtime, page_id):
-        return f"Error: No page found with ID '{page_id}'. Use web_load_web_page first."
+#     Returns:
+#         Extracted data as a string
+#     """
+#     if not data_exists(runtime, page_id):
+#         return f"Error: No page found with ID '{page_id}'. Use web_load_web_page first."
 
-    data = retrieve_data(runtime, page_id)
-    if not isinstance(data, dict) or "content" not in data:
-        return f"Error: '{page_id}' is not a valid page object."
+#     data = retrieve_data(runtime, page_id)
+#     if not isinstance(data, dict) or "content" not in data:
+#         return f"Error: '{page_id}' is not a valid page object."
 
-    raw_html = data["content"]
+#     raw_html = data["content"]
 
-    if not isinstance(raw_html, str):
-        return f"Error: '{page_id}' does not contain HTML content."
+#     if not isinstance(raw_html, str):
+#         return f"Error: '{page_id}' does not contain HTML content."
 
-    # Parse with lxml for full XPath support
-    try:
-        tree = lxml_html.fromstring(raw_html)
+#     # Parse with lxml for full XPath support
+#     try:
+#         tree = lxml_html.fromstring(raw_html)
 
-        # Execute XPath
-        elements = tree.xpath(xpath)
+#         # Execute XPath
+#         elements = tree.xpath(xpath)
 
-        if not elements:
-            return f"No elements found matching XPath: {xpath}"
+#         if not elements:
+#             return f"No elements found matching XPath: {xpath}"
 
-        results = []
-        for i, elem in enumerate(elements):
-            if extract_type == "markdown":
-                html = etree.tostring(elem, encoding='unicode', method='html')
+#         results = []
+#         for i, elem in enumerate(elements):
+#             if extract_type == "markdown":
+#                 html = etree.tostring(elem, encoding='unicode', method='html')
 
-                # Convert to markdown
-                h = html2text.HTML2Text()
-                h.ignore_links = False
-                h.ignore_images = False
-                h.ignore_emphasis = False
-                h.unicode_snob = True
-                h.body_width = 0  # Don't wrap lines
+#                 # Convert to markdown
+#                 h = html2text.HTML2Text()
+#                 h.ignore_links = False
+#                 h.ignore_images = False
+#                 h.ignore_emphasis = False
+#                 h.unicode_snob = True
+#                 h.body_width = 0  # Don't wrap lines
 
-                markdown_content = h.handle(html)
+#                 markdown_content = h.handle(html)
                  
-                results.append(f"[{i}] {markdown_content}")
-            elif extract_type == "html":
-                html_str = etree.tostring(elem, encoding='unicode', method='html')
-                results.append(f"[{i}] {html_str}")
-            elif extract_type == "attrs":
-                if hasattr(elem, 'attrib'):
-                    attrs = dict(elem.attrib)
-                    results.append(f"[{i}] {attrs}")
-                else:
-                    results.append(f"[{i}] (no attributes)")
-            else:
-                return f"Error: Unknown extract_type '{extract_type}'. Use 'text', 'html', or 'attrs'."
+#                 results.append(f"[{i}] {markdown_content}")
+#             elif extract_type == "html":
+#                 html_str = etree.tostring(elem, encoding='unicode', method='html')
+#                 results.append(f"[{i}] {html_str}")
+#             elif extract_type == "attrs":
+#                 if hasattr(elem, 'attrib'):
+#                     attrs = dict(elem.attrib)
+#                     results.append(f"[{i}] {attrs}")
+#                 else:
+#                     results.append(f"[{i}] (no attributes)")
+#             else:
+#                 return f"Error: Unknown extract_type '{extract_type}'. Use 'text', 'html', or 'attrs'."
 
-        result_text = "\n".join(results)
-        return f"Found {len(elements)} element(s) matching '{xpath}':\n\n{result_text}"
+#         result_text = "\n".join(results)
+#         return f"Found {len(elements)} element(s) matching '{xpath}':\n\n{result_text}"
 
-    except Exception as e:
-        return f"Error executing XPath query: {str(e)}"
+#     except Exception as e:
+#         return f"Error executing XPath query: {str(e)}"
 
 @tool
 def web_lookup_with_grep(
@@ -788,7 +788,7 @@ WEB_TOOLS = [
     web_get_markdown_view,          # Markdown view of loaded page
     # web_extract_markdown_section,   # Extract specific markdown section
     # web_extract_with_css,           # Query with CSS selectors
-    web_extract_with_xpath,         # Query with XPath expressions
+    # web_extract_with_xpath,         # Query with XPath expressions
 
     web_lookup_with_grep,           # Grep search on saved HTML file
 
