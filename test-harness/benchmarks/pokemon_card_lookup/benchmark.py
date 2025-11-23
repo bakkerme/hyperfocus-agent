@@ -22,7 +22,8 @@ class Benchmark(BenchmarkBase):
         )
 
         print(f"Using prompt {prompt}\n")
-        
+        print(f"Using path {self.input_path}\n")
+
         # Run the agent via the runner
         # We pass the input directory which contains pikachu.jpg
         output = runner.run(prompt, self.input_path)

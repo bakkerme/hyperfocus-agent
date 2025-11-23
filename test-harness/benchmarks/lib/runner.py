@@ -76,14 +76,14 @@ class DockerAgentRunner:
         pyproject_path = self.project_root / "pyproject.toml"
 
         volumes = {
-            str(working_dir.absolute()): {"bind": "/workspace/test-area", "mode": "rw"},
+            str(working_dir.absolute()): {"bind": "/workspace/test_area", "mode": "rw"},
             str(src_path.absolute()): {"bind": "/app/src", "mode": "rw"},
             str(pyproject_path.absolute()): {"bind": "/app/pyproject.toml", "mode": "ro"},
         }
 
         container = None
         try:
-            # Create container (don't start yet)
+            # Create and start container in detached mode
             container = self.client.containers.run(
                 image=self.docker_config.image,
                 command=command,
@@ -99,18 +99,45 @@ class DockerAgentRunner:
             )
 
             # Stream logs to stdout in real-time
-            output_lines: list[str] = []
-            for line in container.logs(stream=True, follow=True):
-                decoded = line.decode("utf-8")
-                print(decoded, end="", flush=True)
-                output_lines.append(decoded)
+            # Use a thread to handle timeout since logs() blocks
+            import threading
 
-            # Wait for container to finish and get exit code
-            result = container.wait()
-            exit_code = result.get("StatusCode", 0)
+            output_lines: list[str] = []
+            timed_out = False
+
+            def stream_logs():
+                nonlocal output_lines
+                try:
+                    for line in container.logs(stream=True, follow=True):
+                        decoded = line.decode("utf-8")
+                        print(decoded, end="", flush=True)
+                        output_lines.append(decoded)
+                except Exception:
+                    pass  # Container may have been killed
+
+            log_thread = threading.Thread(target=stream_logs, daemon=True)
+            log_thread.start()
+
+            # Wait for container with timeout
+            try:
+                result = container.wait(timeout=self.docker_config.timeout)
+                exit_code = result.get("StatusCode", 0)
+            except Exception:
+                # Timeout or other error - kill the container
+                timed_out = True
+                try:
+                    container.kill()
+                except Exception:
+                    pass
+
+            # Wait for log thread to finish (with short timeout)
+            log_thread.join(timeout=2)
 
             # Collect full output
             full_output = "".join(output_lines)
+
+            if timed_out:
+                return f"Container timed out after {self.docker_config.timeout}s:"
 
             if exit_code != 0:
                 return f"Container error (exit {exit_code}):\n{full_output}"
