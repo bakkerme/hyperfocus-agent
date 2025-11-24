@@ -232,6 +232,9 @@ class BenchmarkRunner:
         model_output_dir = self.output_dir / model_config.name.replace("/", "_") / benchmark_name
         model_output_dir.mkdir(parents=True, exist_ok=True)
 
+        run_output_dir = model_output_dir / f"run_{iteration}"
+        run_output_dir.mkdir(parents=True, exist_ok=True)
+
         # Run the benchmark
         start_time = time.perf_counter()
         try:
@@ -242,8 +245,11 @@ class BenchmarkRunner:
             success = benchmark.verify(output)
 
             # Save output to file
-            output_file = model_output_dir / f"{iteration}.txt"
+            output_file = run_output_dir / f"{iteration}.txt"
             output_file.write_text(output)
+
+            # Cleanup after benchmark run. This will also copy any output files to the run directory.
+            benchmark.cleanup(run_output_dir)
 
             return BenchmarkResult(
                 benchmark_name=benchmark_name,

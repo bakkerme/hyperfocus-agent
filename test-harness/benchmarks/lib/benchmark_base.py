@@ -54,6 +54,11 @@ class BenchmarkBase(ABC):
             True if the output passes verification, False otherwise
         """
         ...
+    
+    @abstractmethod
+    def cleanup(self) -> None:
+        """Clean up any files or state created during the benchmark run."""
+        ...
 
     def get_input_files(self) -> list[Path]:
         """List all files in the input directory."""
