@@ -4,12 +4,9 @@
 
 set -e
 
-echo "Installing hyperfocus-agent in editable mode..."
 poetry install --no-interaction --no-ansi
 
-echo "Ready! Source changes will be reflected immediately."
-echo "Working directory: $(pwd)"
-echo "Python path: $(python -c 'import sys; print(sys.path)')"
+echo "Ready! Working directory: $(pwd)"
 
 cd /workspace/test_area
 
