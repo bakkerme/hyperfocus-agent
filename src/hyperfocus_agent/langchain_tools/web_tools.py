@@ -84,17 +84,17 @@ def web_load_web_page(url: str, runtime: ToolRuntime) -> Command:
             }
         }
 
-        print(skeleton)
-        print(markdown_outline)
+        # print(skeleton)
+        # print(markdown_outline)
 
         message = f"""✓ Loaded web page
 Page ID: {page_id}
 URL: {url}
 HTML size: {len(response.text)} characters
 
+
 DOM Skeleton (structural overview):
 {skeleton}
-
 
 Available extraction methods:
 - web_get_markdown_view(page_id="{page_id}") - Full markdown conversion
@@ -103,10 +103,10 @@ Available extraction methods:
 
 Also available on disk as '{full_path}' for local file processing using grep or python scripts.
 """
-# - web_extract_markdown_section(page_id="{page_id}", heading_query="...") - Specific section
-# - web_extract_with_xpath(page_id="{page_id}", xpath="...", extract_type="text|html|attrs")
 # Markdown Outline (content headings):
 # {markdown_outline}
+# - web_extract_markdown_section(page_id="{page_id}", heading_query="...") - Specific section
+# - web_extract_with_xpath(page_id="{page_id}", xpath="...", extract_type="text|html|attrs")
 
         return Command(update={
             "stored_data": {page_id: page_entry},
@@ -510,6 +510,9 @@ def web_lookup_with_grep(
 
         if not output:
             return f"No matches found for query '{query}'."
+
+        if len(output) > 15000:
+            output = output[:15000] + "\n...(truncated due to max length. Try narrowing your query or reducing context lines)..."
 
         context_desc = "no context" if context_lines == 0 else f"±{context_lines} line(s) context"
         return (

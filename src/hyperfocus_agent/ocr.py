@@ -96,23 +96,14 @@ def ocr_image(
         tools=[],
         system_prompt=(
             "You are an OCR assistant. Extract all text from the provided image. "
-            "Return only the extracted text without additional commentary or formatting. "
-            "Preserve the layout and structure of the text as much as possible."
+            "Return the extracted text with an overview of the structure of the text, including the position of elements."
+            "Don't say 'of course' or other filler, just provide the requested information."
         ),
         state_schema=None,
         context_schema=None,
         middleware=[],
         checkpointer=None,
     )
-
-    # Build message with image
-    prompt_text = (
-        "Extract all text from this image. If there is no text, respond with nothing."
-    )
-    if prompt_instructions:
-        prompt_text = (
-            f"{prompt_text}\n{prompt_instructions.strip()}"
-        )
 
     message = HumanMessage(
         content=[
@@ -122,10 +113,6 @@ def ocr_image(
                     "url": f"data:{image_data['mime_type']};base64,{image_data['base64_data']}"
                 }
             },
-            {
-                "type": "text",
-                "text": prompt_text
-            }
         ]
     )
 

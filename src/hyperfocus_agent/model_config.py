@@ -55,10 +55,10 @@ class ModelCredentials:
             model=self.model,
             api_key=self.api_key,
             base_url=self.base_url,
-            temperature=temperature,
+            # temperature=temperature,
             streaming=streaming,
             callbacks=callbacks or [],
-            reasoning_effort="medium",
+            # reasoning_effort="medium",
         )
 
 

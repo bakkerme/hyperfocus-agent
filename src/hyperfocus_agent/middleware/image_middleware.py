@@ -1,26 +1,14 @@
-import os
-import base64
-from pathlib import Path
 from collections.abc import Callable
-from urllib.parse import urlparse
-import requests
 
 from langchain_openai import ChatOpenAI
 from langchain.agents.middleware import (
     wrap_model_call,
     before_model,
-    wrap_tool_call,
     ModelRequest,
     ModelResponse,
 )
 
-from langchain.tools.tool_node import ToolCallRequest
-from langchain_core.messages import ToolMessage, HumanMessage
-from langgraph.types import Command
-import json
-
 from ..langchain_state import HyperfocusState
-
 
 # Global model references (will be initialized in create_agent)
 local_model: ChatOpenAI | None = None

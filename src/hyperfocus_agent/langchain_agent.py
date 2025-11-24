@@ -23,6 +23,7 @@ from .middleware.image_middleware import (
 )
 from .middleware.logging_middleware import log_tool_execution
 from .middleware.context_middleware import filter_old_script_versions
+from .middleware.tool_middleware import available_tools
 
 def create_hyperfocus_agent():
     """Create the Hyperfocus agent with all middleware and tools.
@@ -49,11 +50,11 @@ def create_hyperfocus_agent():
     # Combine all tools into a single flat list
     all_tools = [
         # *CSV_TOOLS,
+        # *TASK_TOOLS,
         *DIRECTORY_TOOLS,
         *FILE_TOOLS,
         *IMAGE_TOOLS,
         *SHELL_TOOLS,
-        # *TASK_TOOLS,
         *WEB_TOOLS,
     ]
 
@@ -89,8 +90,9 @@ def create_hyperfocus_agent():
             strip_processed_images,
             dynamic_model_selection,
             log_tool_execution,
+            available_tools,
             # summarisation_middleware,
-            context_editing_middleware,
+            # context_editing_middleware,
         ],
         checkpointer=InMemorySaver(),
     )
