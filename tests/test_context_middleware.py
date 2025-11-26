@@ -128,9 +128,3 @@ def test_filter_old_script_versions():
     assert "call_2" not in tool_call_ids_in_results, "Should remove result for call_2"
     assert "call_3" in tool_call_ids_in_results, "Should keep result for call_3"
     assert "call_4" in tool_call_ids_in_results, "Should keep result for call_4"
-
-    print("\n✓ All tests passed!")
-
-
-if __name__ == "__main__":
-    test_filter_old_script_versions()
