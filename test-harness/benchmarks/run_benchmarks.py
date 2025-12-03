@@ -20,6 +20,21 @@ def print_summary(results: list) -> None:
     print("BENCHMARK SUMMARY")
     print("=" * 60)
 
+    # Overall stats for the entire run
+    total_runs = len(results)
+    total_successes = sum(1 for r in results if r.success)
+    total_durations = [r.duration_seconds for r in results]
+    overall_rate = (total_successes / total_runs * 100) if total_runs else 0
+    overall_avg = statistics.mean(total_durations)
+    overall_std = statistics.stdev(total_durations) if total_runs > 1 else 0
+    overall_total_duration = sum(total_durations)
+
+    print("Overall:")
+    print(f"  Runs: {total_runs}")
+    print(f"  Success Rate: {total_successes}/{total_runs} ({overall_rate:.1f}%)")
+    print(f"  Avg Duration: {overall_avg:.2f}s (std: {overall_std:.2f}s)")
+    print(f"  Total Duration: {overall_total_duration:.2f}s")
+
     # Group by model
     by_model: dict[str, list] = {}
     for r in results:
@@ -47,7 +62,14 @@ def print_summary(results: list) -> None:
             b_successes = sum(1 for r in bench_results if r.success)
             b_total = len(bench_results)
             b_rate = (b_successes / b_total * 100) if b_total > 0 else 0
-            print(f"    {benchmark_name}: {b_successes}/{b_total} ({b_rate:.1f}%)")
+            b_durations = [r.duration_seconds for r in bench_results]
+            b_avg = statistics.mean(b_durations)
+            b_std = statistics.stdev(b_durations) if len(b_durations) > 1 else 0
+            b_total_duration = sum(b_durations)
+            print(
+                f"    {benchmark_name}: {b_successes}/{b_total} ({b_rate:.1f}%) | "
+                f"avg {b_avg:.2f}s (std: {b_std:.2f}s) | total {b_total_duration:.2f}s"
+            )
 
     print("\n" + "=" * 60)
 

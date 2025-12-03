@@ -25,7 +25,7 @@ class Benchmark(BenchmarkBase):
             "(it will be a small string of up to 4 characters, like 'cpa4', in the bottom left corner, nothing else, no spaces) "
             "and look it up in the provided website and "
             "include the set name alongside the card content. Make sure to get an exact match on "
-            "the code, since there are sets and subsets that have similar codes."
+            "the code, since there are sets and subsets that have similar codes. "
             "http://asset-server:8080/pokemon.html"
         )
 

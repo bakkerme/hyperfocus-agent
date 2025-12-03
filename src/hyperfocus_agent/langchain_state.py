@@ -37,6 +37,8 @@ class HyperfocusState(TypedDict, total=False):
     # Store large data for task-based processing
     stored_data: dict[str, DataEntry]
 
+    all_tools: list[Any]  # Store the full canonical tool list
+
 
 class HyperfocusContext(TypedDict, total=False):
     """Runtime context for Hyperfocus agent.

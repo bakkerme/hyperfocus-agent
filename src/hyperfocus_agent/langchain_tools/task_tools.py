@@ -187,7 +187,6 @@ def run_task_on_stored_row_data(
     return result
 
 # Core task execution logic
-
 def execute_task(
     runtime: ToolRuntime[HyperfocusContext, HyperfocusState],
     prompt: str,

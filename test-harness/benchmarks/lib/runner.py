@@ -237,44 +237,38 @@ class BenchmarkRunner:
 
         # Run the benchmark
         start_time = time.perf_counter()
+
+        output = benchmark.run(runner, model_config.model, prompt_version)
+        duration = time.perf_counter() - start_time
+
+        # Verify the result
+        print("\n" + "="*80)
+        print("STARTING VERIFICATION")
+        print("="*80)
         try:
-            output = benchmark.run(runner, model_config.model, prompt_version)
-            duration = time.perf_counter() - start_time
-
-            # Verify the result
             success = benchmark.verify(output)
-
-            # Save output to file
-            output_file = run_output_dir / f"{iteration}.txt"
-            output_file.write_text(output)
-
-            # Cleanup after benchmark run. This will also copy any output files to the run directory.
-            benchmark.cleanup(run_output_dir)
-
-            return BenchmarkResult(
-                benchmark_name=benchmark_name,
-                model_name=model_config.name,
-                success=success,
-                output=output,
-                duration_seconds=duration,
-            )
-
+            print(f"Verification result: {success}")
         except Exception as e:
-            duration = time.perf_counter() - start_time
-            error_output = f"Exception: {e}"
+            print(f"ERROR during verification: {e}")
+            import traceback
+            traceback.print_exc()
+            success = False
+        print("="*80 + "\n")
 
-            # Save error to file
-            output_file = model_output_dir / f"{iteration}_error.txt"
-            output_file.write_text(error_output)
+        # Save output to file
+        output_file = run_output_dir / f"{iteration}.txt"
+        output_file.write_text(output)
 
-            return BenchmarkResult(
-                benchmark_name=benchmark_name,
-                model_name=model_config.name,
-                success=False,
-                output=error_output,
-                duration_seconds=duration,
-                error=str(e),
-            )
+        # Cleanup after benchmark run. This will also copy any output files to the run directory.
+        benchmark.cleanup(run_output_dir)
+
+        return BenchmarkResult(
+            benchmark_name=benchmark_name,
+            model_name=model_config.name,
+            success=success,
+            output=output,
+            duration_seconds=duration,
+        )
 
     def run_all(
         self,
@@ -320,11 +314,6 @@ class BenchmarkRunner:
 
                     if result.error:
                         print(f"      Error: {result.error}")
-
-                    # Show output preview on failure if verbose
-                    if verbose and not result.success and result.output:
-                        preview = result.output
-                        print(f"      Output preview:\n{preview}")
 
                     # Show where output was saved
                     output_dir = self.output_dir / model_config.name.replace("/", "_") / benchmark_name
