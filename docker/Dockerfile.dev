@@ -19,12 +19,8 @@ WORKDIR /app
 COPY pyproject.toml poetry.lock ./
 COPY README.md ./
 
-# Configure Poetry to not create virtual env (we're already in a container)
-RUN poetry config virtualenvs.create false
-
 # Install dependencies (but don't install the package yet)
 # This layer will be cached unless dependencies change
-RUN poetry install --no-interaction --no-ansi --no-root
 
 # Source code will be mounted at runtime via volume
 # This means changes to source code don't require rebuilds
@@ -46,8 +42,9 @@ RUN if getent group "$GROUP_ID" >/dev/null; then \
     useradd -m -u "$USER_ID" -g "$GROUP_NAME" "$USERNAME" && \
     chown -R "$USERNAME":"$GROUP_NAME" /app /workspace
 
-ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
 USER $USERNAME
+
+RUN poetry install --no-interaction --no-ansi --no-root
 
 # Set the workspace as working directory for testing
 WORKDIR /app

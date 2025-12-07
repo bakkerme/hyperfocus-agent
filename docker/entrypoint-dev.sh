@@ -8,7 +8,11 @@ export PATH="$HOME/.local/bin:$PATH"
 
 # Install the package for the current user without touching system or mounted files owned by root
 # pip install --user --no-deps --editable /app
-poetry install  --no-interaction --no-ansi
+poetry install --no-interaction --no-ansi
+
+# Add poetry env bin to PATH
+POETRY_ENV_DIR=$(poetry env info -p)
+export PATH="$POETRY_ENV_DIR/bin:$PATH"
 
 echo "Ready! Working directory: $(pwd)"
 
