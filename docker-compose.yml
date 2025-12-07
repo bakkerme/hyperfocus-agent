@@ -44,6 +44,9 @@ services:
     build:
       context: .
       dockerfile: docker/Dockerfile.dev
+      args:
+        USER_ID: ${HOST_UID:-1000}
+        GROUP_ID: ${HOST_GID:-1000}
     environment:
       LOCAL_OPENAI_BASE_URL: ${LOCAL_OPENAI_BASE_URL:-""}
       LOCAL_OPENAI_API_KEY: ${LOCAL_OPENAI_API_KEY:-""}
@@ -70,6 +73,7 @@ services:
       - ./pyproject.toml:/app/pyproject.toml:ro
       # Persistent workspace for agent operations
       - ./workspace:/workspace
+    user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
 
   # Phoenix observability server
   phoenix:

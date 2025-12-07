@@ -2,6 +2,10 @@
 # Optimized for live code editing without rebuilds
 FROM python:3.12-slim AS dev
 
+ARG USER_ID=1000
+ARG GROUP_ID=1000
+ARG USERNAME=hyperfocus
+
 RUN apt update && apt install -y --no-install-recommends \
     curl wget ripgrep vim
 
@@ -31,6 +35,19 @@ RUN mkdir -p /workspace/test_area
 # Copy and setup entrypoint that will install package after volume mount
 COPY docker/entrypoint-dev.sh /entrypoint-dev.sh
 RUN chmod +x /entrypoint-dev.sh
+
+# Create a non-root user that matches the host UID/GID so mounted files are not owned by root
+RUN if getent group "$GROUP_ID" >/dev/null; then \
+        GROUP_NAME=$(getent group "$GROUP_ID" | cut -d: -f1); \
+    else \
+        GROUP_NAME="$USERNAME"; \
+        groupadd -g "$GROUP_ID" "$GROUP_NAME"; \
+    fi && \
+    useradd -m -u "$USER_ID" -g "$GROUP_NAME" "$USERNAME" && \
+    chown -R "$USERNAME":"$GROUP_NAME" /app /workspace
+
+ENV PATH="/home/${USERNAME}/.local/bin:${PATH}"
+USER $USERNAME
 
 # Set the workspace as working directory for testing
 WORKDIR /app
