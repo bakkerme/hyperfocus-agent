@@ -7,8 +7,7 @@ import re
 from collections import defaultdict
 
 from lib.benchmark_base import BenchmarkBase
-from typing import Any, Dict, Tuple
-from io import StringIO
+from typing import Any
 
 class Benchmark(BenchmarkBase):
     PASS_THRESHOLD = 0.9
@@ -47,7 +46,6 @@ class Benchmark(BenchmarkBase):
         # output = runner.run(prompt, self.input_path)
 
         output = runner.run(prompt, self.input_path)
-        # output = "Big bubooty!!!"
         return output
 
     def verify_with_stats(self, output: str) -> dict[str, Any]:
@@ -144,7 +142,7 @@ class Benchmark(BenchmarkBase):
         print(f"Row Match Rate: {matched_rows}/{total_rows}")
         print("-" * 20)
         print("Column Accuracy:")
-        column_averages: Dict[str, float] = {}
+        column_averages: dict[str, float] = {}
         for col, scores in column_scores.items():
             avg_col = sum(scores) / len(scores) if scores else 0.0
             column_averages[col] = avg_col
@@ -193,7 +191,7 @@ class Benchmark(BenchmarkBase):
         s = " ".join(str(s).split())
         return s.lower()
 
-    def get_row_key(self, row: Dict[str, str]) -> Tuple[str, str, str]:
+    def get_row_key(self, row: dict[str, str]) -> tuple[str, str, str]:
         """Generate a composite key for a row."""
         # Key based on Set, Era, and Set No.
         # Handle potential missing keys gracefully
