@@ -92,7 +92,7 @@ def create_hyperfocus_agent():
             log_tool_execution,
             available_tools,
             # summarisation_middleware,
-            # context_editing_middleware,
+            context_editing_middleware,
         ],
         checkpointer=InMemorySaver(),
     )

@@ -27,7 +27,7 @@ from .file_tools import FILE_TOOLS
 
 # Constants
 MAX_ROWS_PER_TASK = 200
-MAX_TEXT_LENGTH = 100000  # 100k chars max for direct text input
+# MAX_TEXT_LENGTH = 100000  # 100k chars max for direct text input
 MAX_PREVIEW_LENGTH = 500
 
 
@@ -232,10 +232,10 @@ def execute_task(
     if not any([data_id, data_text, image_path]):
         raise ValueError("Must provide at least one of: data_id, data_text, or image_path")
     
-    if data_text and len(data_text) > MAX_TEXT_LENGTH:
-        raise ValueError(
-            f"data_text exceeds maximum length ({len(data_text)} > {MAX_TEXT_LENGTH} chars)"
-        )
+    # if data_text and len(data_text) > MAX_TEXT_LENGTH:
+    #     raise ValueError(
+    #         f"data_text exceeds maximum length ({len(data_text)} > {MAX_TEXT_LENGTH} chars)"
+    #     )
     
     # 2. BUILD TASK MESSAGES
     messages = _build_task_messages(prompt, data_id, data_text, image_path, runtime)

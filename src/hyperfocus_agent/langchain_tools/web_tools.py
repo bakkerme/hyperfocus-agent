@@ -20,8 +20,8 @@ from ..utils.html_utils import preprocess_html_for_schema, get_markdown_outline_
 
 from ..langchain_state import DataEntry, HyperfocusState, HyperfocusContext, data_exists, retrieve_data
 
-HTML_CHUNK_MAX_TOKENS = 24000
-HTML_CHUNK_MAX_SEGMENTS = 15
+HTML_CHUNK_MAX_TOKENS = 100000
+HTML_CHUNK_MAX_SEGMENTS = 99999
 
     # - web_extract_with_css() - Query with CSS selectors
     # - web_extract_markdown_section() - Extract specific markdown section
@@ -788,56 +788,19 @@ You may now operate on the file on disk at path '{file_path}' using your local t
 def _chunk_html_for_task(
     raw_html: str,
     max_tokens: int = HTML_CHUNK_MAX_TOKENS,
-    max_chunks: int = HTML_CHUNK_MAX_SEGMENTS,
-):
+) -> list[str]:
     """Prepare chunked HTML payload for task sub-agents.
 
     Returns the payload plus metadata describing how many chunks were used."""
-    chunk_metadata = {
-        "max_tokens": max_tokens,
-        "max_chunks": max_chunks,
-        "used_chunks": 1,
-        "total_chunks": 1,
-        "truncated": False,
-        "error": None,
-    }
 
     # Suppress noisy cssutils warnings from the html_chunking dependency
     try:
         import cssutils
-
         cssutils.log.setLevel(logging.CRITICAL)
     except Exception:
         pass
 
-    try:
-        chunks = get_html_chunks(raw_html, max_tokens)
-    except Exception as exc:  # pragma: no cover - defensive fallback
-        chunk_metadata["error"] = str(exc)
-        return raw_html, chunk_metadata
-
-    if not chunks:
-        return raw_html, chunk_metadata
-
-    total_chunks = len(chunks)
-    limited_chunks = chunks[:max_chunks]
-    chunk_metadata.update(
-        {
-            "used_chunks": len(limited_chunks),
-            "total_chunks": total_chunks,
-            "truncated": total_chunks > max_chunks,
-        }
-    )
-
-    payload_sections = []
-    for idx, chunk in enumerate(limited_chunks, start=1):
-        payload_sections.append(
-            f"===== HTML CHUNK {idx}/{total_chunks} =====\n{chunk.strip()}"
-        )
-
-    payload = "\n\n".join(payload_sections)
-    return payload, chunk_metadata
-
+    return get_html_chunks(raw_html, max_tokens)
 @tool
 def get_xpath_list(page_id: str, user_query: str, runtime: ToolRuntime) -> str:
     """Search through HTML content to find XPath expressions matching a query.
@@ -880,7 +843,7 @@ def get_xpath_list(page_id: str, user_query: str, runtime: ToolRuntime) -> str:
         if not isinstance(raw_html, str):
             return f"Error: '{page_id}' does not contain HTML content."
 
-        chunked_html, chunk_metadata = _chunk_html_for_task(raw_html)
+        chunked_html = _chunk_html_for_task(raw_html)
 
         # 2. Build task prompt for the sub-agent
         task_prompt = f"""You are an HTML processing agent designed to search through HTML and retrieve one or more XPath expressions to data that the user is looking for.
@@ -890,7 +853,7 @@ You are looking for: {user_query}
 Instructions:
 - Analyze the HTML structure carefully
 - Identify the XPath expressions that point to the requested data
-- Be as specific as possible with your XPath expressions
+- Be as specific as possible with your XPath expressions, returning only the minimum necessary elements
 - Test your XPath mentally to ensure it would select the right elements
 - Return ONLY a markdown table with the following format:
 
@@ -900,28 +863,25 @@ Instructions:
 
 Do not include any additional commentary before or after the table. Just return the table itself."""
 
-        # 3. Execute task with sub-agent
-        result = execute_task(
-            runtime=runtime,
-            prompt=task_prompt,
-            data_text=chunked_html,
-            enable_tools=False,  # No tools needed for XPath analysis
-        )
+        results = []
+        for index, chunk in enumerate(chunked_html):
+            print(f"→ [XPath Finder] Prepared chunk of size {len(chunk)} characters")
+
+            # 3. Execute task with sub-agent
+            result = execute_task(
+                runtime=runtime,
+                prompt=task_prompt,
+                data_text=chunk,
+                enable_tools=False,  # No tools needed for XPath analysis
+            )
+
+            result_context = f"Chunk {index + 1}/{len(chunked_html)} (size: {len(chunk)} chars) \n Result:\n{result}\n"
+            results.append(result_context)
 
         url = data["metadata"].get("url", "unknown")
-        chunk_notes = (
-            f"HTML chunks: {chunk_metadata['used_chunks']}/{chunk_metadata['total_chunks']} "
-            f"(max {chunk_metadata['max_tokens']} tokens each)"
-        )
-        if chunk_metadata.get("truncated"):
-            chunk_notes += f" - truncated to first {chunk_metadata['max_chunks']} chunks"
-        if chunk_metadata.get("error"):
-            chunk_notes += f" - chunking fallback: {chunk_metadata['error']}"
         
         return f"""✓ XPath search completed
-URL: {url}
 Query: "{user_query}"
-{chunk_notes}
 
 {result}
 
