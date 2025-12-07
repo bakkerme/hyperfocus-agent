@@ -55,6 +55,17 @@ class BenchmarkBase(ABC):
         """
         ...
     
+    def verify_with_stats(self, output: str) -> dict[str, Any]:
+        """Verify output and return structured metrics.
+
+        Default implementation wraps the boolean result from verify().
+
+        Benchmarks with richer scoring (e.g. numeric scores) should override
+        this method and include at least a ``success`` key.
+        """
+
+        return {"success": self.verify(output)}
+    
     @abstractmethod
     def cleanup(self) -> None:
         """Clean up any files or state created during the benchmark run."""

@@ -50,7 +50,7 @@ class Benchmark(BenchmarkBase):
         # output = "Big bubooty!!!"
         return output
 
-    def verify(self, output: str) -> bool:
+    def verify_with_stats(self, output: str) -> dict[str, Any]:
         print("Verifying output...\n")
         # Load in comparison csv
         expected_csv_path = self.assets_dir / "comparison/expected_jp_cards_all.csv"
@@ -59,13 +59,13 @@ class Benchmark(BenchmarkBase):
                 expected_rows = list(csv.DictReader(f))
         except Exception as e:
             print(f"Error reading expected CSV: {e}")
-            return False
+            return {"success": False, "error": str(e)}
             
         # Load in output csv
         output_csv_path = self.assets_dir / "input/jp_cards_all.csv"
         if not output_csv_path.exists():
             print("Output CSV file not found.")
-            return False
+            return {"success": False, "error": "output_csv_missing"}
             
         try:
             with open(output_csv_path, 'r', encoding='utf-8') as f:
@@ -75,7 +75,7 @@ class Benchmark(BenchmarkBase):
                 output_rows = list(reader)
         except Exception as e:
             print(f"Error reading output CSV: {e}")
-            return False
+            return {"success": False, "error": str(e)}
 
         # 1. Check Headers
         expected_headers = ["Set", "Era", "Set No.", "Symbol", "Japanese Name", "English Equivalent", "No. of Cards", "Release Date"]
@@ -99,7 +99,7 @@ class Benchmark(BenchmarkBase):
         total_rows = len(expected_rows)
         if total_rows == 0:
             print("No expected rows to compare.")
-            return True
+            return {"success": True, "final_score": 1.0, "header_score": header_score, "avg_row_score": 1.0}
 
         row_scores = []
         column_scores = defaultdict(list)
@@ -140,18 +140,34 @@ class Benchmark(BenchmarkBase):
         print(f"SCORING REPORT (Threshold: {self.PASS_THRESHOLD})")
         print("="*40)
         print(f"Header Score: {header_score:.2f}")
-        print(f"Row Match Rate: {len([s for s in row_scores if s > 0])}/{total_rows}")
+        matched_rows = len([s for s in row_scores if s > 0])
+        print(f"Row Match Rate: {matched_rows}/{total_rows}")
         print("-" * 20)
         print("Column Accuracy:")
+        column_averages: Dict[str, float] = {}
         for col, scores in column_scores.items():
             avg_col = sum(scores) / len(scores) if scores else 0.0
+            column_averages[col] = avg_col
             print(f"  {col:<20}: {avg_col:.2f}")
         print("-" * 20)
         print(f"Average Row Score: {avg_row_score:.2f}")
         print(f"FINAL SCORE:       {final_score:.2f}")
         print("="*40 + "\n")
 
-        return final_score >= self.PASS_THRESHOLD
+        return {
+            "success": final_score >= self.PASS_THRESHOLD,
+            "final_score": final_score,
+            "header_score": header_score,
+            "avg_row_score": avg_row_score,
+            "matched_rows": matched_rows,
+            "total_rows": total_rows,
+            "column_averages": column_averages,
+        }
+
+    def verify(self, output: str) -> bool:
+        """Fallback to maintain compatibility with boolean-only interface."""
+        stats = self.verify_with_stats(output)
+        return bool(stats.get("success", False))
 
     def cleanup(self, output_path: str) -> None:
         # copy all output files from assets/input to output_path

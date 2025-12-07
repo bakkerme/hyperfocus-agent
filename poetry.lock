@@ -240,6 +240,24 @@ files = [
 ]
 
 [[package]]
+name = "cssutils"
+version = "2.11.1"
+description = "A CSS Cascading Style Sheets library for Python"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "cssutils-2.11.1-py3-none-any.whl", hash = "sha256:a67bfdfdff4f3867fab43698ec4897c1a828eca5973f4073321b3bccaf1199b1"},
+    {file = "cssutils-2.11.1.tar.gz", hash = "sha256:0563a76513b6af6eebbe788c3bf3d01c920e46b3f90c8416738c5cfc773ff8e2"},
+]
+
+[package.dependencies]
+more-itertools = "*"
+
+[package.extras]
+doc = ["furo", "jaraco.packaging (>=9.3)", "jaraco.tidelift (>=1.4)", "rst.linker (>=1.9)", "sphinx (>=3.5)", "sphinx-lint"]
+test = ["cssselect", "importlib-resources", "jaraco.test (>=5.1)", "lxml", "pytest (>=6,!=8.1.*)", "pytest-checkdocs (>=2.4)", "pytest-cov", "pytest-enabler (>=2.2)", "pytest-mypy", "pytest-ruff (>=0.2.1)"]
+
+[[package]]
 name = "distro"
 version = "1.9.0"
 description = "Distro - an OS platform information API"
@@ -424,6 +442,22 @@ files = [
     {file = "h11-0.16.0-py3-none-any.whl", hash = "sha256:63cf8bbe7522de3bf65932fda1d9c2772064ffb3dae62d55932da54b31cb6c86"},
     {file = "h11-0.16.0.tar.gz", hash = "sha256:4e35b956cf45792e4caa5885e69fba00bdbc6ffafbfa020300e549b208ee5ff1"},
 ]
+
+[[package]]
+name = "html-chunking"
+version = "0.0.4"
+description = "A Python package for token-aware HTML chunking that preserves structure and attributes, with optional cleaning and attribute length control."
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "html_chunking-0.0.4-py3-none-any.whl", hash = "sha256:b86419085930f553455aba3458bdc139cbcb854951bcaa08ae50dfd8fe5e5539"},
+    {file = "html_chunking-0.0.4.tar.gz", hash = "sha256:f1ca97adaeac1dca7e74398a46c36c520e6c971d1fd38ffa8ce44c19a8089b45"},
+]
+
+[package.dependencies]
+beautifulsoup4 = ">4.12.0"
+cssutils = ">2.11.0"
+tiktoken = ">0.5.0"
 
 [[package]]
 name = "html2text"
@@ -1031,6 +1065,17 @@ files = [
 [package.dependencies]
 beautifulsoup4 = ">=4.9,<5"
 six = ">=1.15,<2"
+
+[[package]]
+name = "more-itertools"
+version = "10.8.0"
+description = "More routines for operating on iterables, beyond itertools"
+optional = false
+python-versions = ">=3.9"
+files = [
+    {file = "more_itertools-10.8.0-py3-none-any.whl", hash = "sha256:52d4362373dcf7c52546bc4af9a86ee7c4579df9a8dc268be0a2f949d376cc9b"},
+    {file = "more_itertools-10.8.0.tar.gz", hash = "sha256:f638ddf8a1a0d134181275fb5d58b086ead7c6a72429ad725c67503f13ba30bd"},
+]
 
 [[package]]
 name = "openai"
@@ -2505,4 +2550,4 @@ cffi = ["cffi (>=1.17,<2.0)", "cffi (>=2.0.0b)"]
 [metadata]
 lock-version = "2.0"
 python-versions = ">=3.12,<3.14"
-content-hash = "5e4ce5ee1136188e24a6b05e3b05f5dfd9568331e3f2cf8b53d870e4e631164f"
+content-hash = "556361189364314ee86ffb68030883ed2ef4671a0675728c9a72a9a793515145"

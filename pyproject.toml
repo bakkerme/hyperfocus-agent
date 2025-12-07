@@ -23,6 +23,7 @@ openinference-instrumentation-langchain = "^0.1.55"
 duckdb = "^1.4.2"
 ripgrepy = "^2.2.0"
 docker = "^7.1.0"
+html-chunking = "^0.0.4"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.1"

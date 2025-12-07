@@ -21,6 +21,7 @@ class BenchmarkResult:
     output: str
     duration_seconds: float
     error: str | None = None
+    metrics: dict[str, Any] | None = None
 
 
 @dataclass
@@ -246,7 +247,8 @@ class BenchmarkRunner:
         print("STARTING VERIFICATION")
         print("="*80)
         try:
-            success = benchmark.verify(output)
+            stats = benchmark.verify_with_stats(output)
+            success = bool(stats.get("success", False))
             print(f"Verification result: {success}")
         except Exception as e:
             print(f"ERROR during verification: {e}")
@@ -268,6 +270,7 @@ class BenchmarkRunner:
             success=success,
             output=output,
             duration_seconds=duration,
+            metrics=locals().get("stats"),
         )
 
     def run_all(

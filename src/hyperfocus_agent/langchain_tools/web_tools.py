@@ -6,6 +6,7 @@ import hashlib
 import html2text
 import tempfile
 import re
+import logging
 from langchain.tools import tool, ToolRuntime
 from mrkdwn_analysis import MarkdownAnalyzer
 from datetime import datetime
@@ -14,11 +15,16 @@ from langchain_core.messages import ToolMessage
 from bs4 import BeautifulSoup
 from lxml import etree, html as lxml_html
 from ripgrepy import Ripgrepy, RipGrepNotFound
+from html_chunking import get_html_chunks
 from ..utils.html_utils import preprocess_html_for_schema, get_markdown_outline_from_html, create_dom_skeleton
 
 from ..langchain_state import DataEntry, HyperfocusState, HyperfocusContext, data_exists, retrieve_data
 
-    # - web_extract_with_xpath() - Query with XPath expressions
+HTML_CHUNK_MAX_TOKENS = 24000
+HTML_CHUNK_MAX_SEGMENTS = 15
+
+    # - web_extract_with_css() - Query with CSS selectors
+    # - web_extract_markdown_section() - Extract specific markdown section
 @tool
 def web_load_web_page(url: str, runtime: ToolRuntime) -> Command:
     """Load a web page and store it for multiple extraction methods.
@@ -26,12 +32,6 @@ def web_load_web_page(url: str, runtime: ToolRuntime) -> Command:
     This is the unified entry point for web scraping. It fetches the HTML once
     and provides both structural overview (DOM skeleton + markdown outline) to help
     you decide which extraction method to use.
-
-    After loading, you can use:
-    - web_paged_markdown_find() - Semantic search through markdown with sub-agents
-    - web_get_markdown_view() - Get full markdown conversion
-    - web_extract_markdown_section() - Extract specific markdown section
-    - web_extract_with_css() - Query with CSS selectors
 
     Args:
         url: The URL to fetch
@@ -99,14 +99,14 @@ DOM Skeleton (structural overview):
 Available extraction methods:
 - web_get_markdown_view(page_id="{page_id}") - Full markdown conversion
 - web_lookup_with_grep(page_id="{page_id}", query="...", context_lines=3) - Grep search on saved HTML
-- web_extract_with_css(page_id="{page_id}", selector="...", extract_type="text|html|attrs")
+- web_extract_with_xpath(page_id="{page_id}", xpath="...", extract_type="text|html|attrs") - Get a list of xpath expressions with natural language
 
 Also available on disk as '{full_path}' for local file processing using grep or python scripts.
 """
 # Markdown Outline (content headings):
 # {markdown_outline}
 # - web_extract_markdown_section(page_id="{page_id}", heading_query="...") - Specific section
-# - web_extract_with_xpath(page_id="{page_id}", xpath="...", extract_type="text|html|attrs")
+# - web_extract_with_css(page_id="{page_id}", selector="...", extract_type="text|html|attrs")
 
         return Command(update={
             "stored_data": {page_id: page_entry},
@@ -207,10 +207,10 @@ Full markdown content:
 {markdown_content}
 
 To extract a specific section, use:
-web_extract_markdown_section(page_id="{page_id}", heading_query="heading text")
 or
 web_paged_markdown_find(page_id="{page_id}", lookup_prompt="your query here")
 """
+# web_extract_markdown_section(page_id="{page_id}", heading_query="heading text")
 
     except Exception as e:
         return f"Error generating markdown view: {str(e)}"
@@ -391,76 +391,76 @@ def web_extract_with_css(page_id: str, selector: str, extract_type: str, runtime
     return f"Found {len(elements)} element(s) matching '{selector}':\n\n{result_text}"
 
 
-# @tool
-# def web_extract_with_xpath(page_id: str, xpath: str, extract_type: str, runtime: ToolRuntime) -> str:
-#     """Extract data from a loaded page using XPath queries.
+@tool
+def web_extract_with_xpath(page_id: str, xpath: str, extract_type: str, runtime: ToolRuntime) -> str:
+    """Extract data from a loaded page using XPath queries.
 
-#     Use the markdown outline from web_load_web_page to find XPath expressions,
-#     or design your own based on the DOM skeleton.
+    Use the markdown outline from web_load_web_page to find XPath expressions,
+    or design your own based on the DOM skeleton.
 
-#     Args:
-#         page_id: ID of the page from web_load_web_page
-#         xpath: XPath query (e.g., "//div[@class='content']//h2", "//article[@id='main']")
-#         extract_type: What to extract - "markdown" (markdown content), "html" (outer HTML), or "attrs" (all attributes)
+    Args:
+        page_id: ID of the page from web_load_web_page
+        xpath: XPath query (e.g., "//div[@class='content']//h2", "//article[@id='main']")
+        extract_type: What to extract - "markdown" (markdown content), "html" (outer HTML), or "attrs" (all attributes)
 
-#     Returns:
-#         Extracted data as a string
-#     """
-#     if not data_exists(runtime, page_id):
-#         return f"Error: No page found with ID '{page_id}'. Use web_load_web_page first."
+    Returns:
+        Extracted data as a string
+    """
+    if not data_exists(runtime, page_id):
+        return f"Error: No page found with ID '{page_id}'. Use web_load_web_page first."
 
-#     data = retrieve_data(runtime, page_id)
-#     if not isinstance(data, dict) or "content" not in data:
-#         return f"Error: '{page_id}' is not a valid page object."
+    data = retrieve_data(runtime, page_id)
+    if not isinstance(data, dict) or "content" not in data:
+        return f"Error: '{page_id}' is not a valid page object."
 
-#     raw_html = data["content"]
+    raw_html = data["content"]
 
-#     if not isinstance(raw_html, str):
-#         return f"Error: '{page_id}' does not contain HTML content."
+    if not isinstance(raw_html, str):
+        return f"Error: '{page_id}' does not contain HTML content."
 
-#     # Parse with lxml for full XPath support
-#     try:
-#         tree = lxml_html.fromstring(raw_html)
+    # Parse with lxml for full XPath support
+    try:
+        tree = lxml_html.fromstring(raw_html)
 
-#         # Execute XPath
-#         elements = tree.xpath(xpath)
+        # Execute XPath
+        elements = tree.xpath(xpath)
 
-#         if not elements:
-#             return f"No elements found matching XPath: {xpath}"
+        if not elements:
+            return f"No elements found matching XPath: {xpath}"
 
-#         results = []
-#         for i, elem in enumerate(elements):
-#             if extract_type == "markdown":
-#                 html = etree.tostring(elem, encoding='unicode', method='html')
+        results = []
+        for i, elem in enumerate(elements):
+            if extract_type == "markdown":
+                html = etree.tostring(elem, encoding='unicode', method='html')
 
-#                 # Convert to markdown
-#                 h = html2text.HTML2Text()
-#                 h.ignore_links = False
-#                 h.ignore_images = False
-#                 h.ignore_emphasis = False
-#                 h.unicode_snob = True
-#                 h.body_width = 0  # Don't wrap lines
+                # Convert to markdown
+                h = html2text.HTML2Text()
+                h.ignore_links = False
+                h.ignore_images = False
+                h.ignore_emphasis = False
+                h.unicode_snob = True
+                h.body_width = 0  # Don't wrap lines
 
-#                 markdown_content = h.handle(html)
+                markdown_content = h.handle(html)
                  
-#                 results.append(f"[{i}] {markdown_content}")
-#             elif extract_type == "html":
-#                 html_str = etree.tostring(elem, encoding='unicode', method='html')
-#                 results.append(f"[{i}] {html_str}")
-#             elif extract_type == "attrs":
-#                 if hasattr(elem, 'attrib'):
-#                     attrs = dict(elem.attrib)
-#                     results.append(f"[{i}] {attrs}")
-#                 else:
-#                     results.append(f"[{i}] (no attributes)")
-#             else:
-#                 return f"Error: Unknown extract_type '{extract_type}'. Use 'text', 'html', or 'attrs'."
+                results.append(f"[{i}] {markdown_content}")
+            elif extract_type == "html":
+                html_str = etree.tostring(elem, encoding='unicode', method='html')
+                results.append(f"[{i}] {html_str}")
+            elif extract_type == "attrs":
+                if hasattr(elem, 'attrib'):
+                    attrs = dict(elem.attrib)
+                    results.append(f"[{i}] {attrs}")
+                else:
+                    results.append(f"[{i}] (no attributes)")
+            else:
+                return f"Error: Unknown extract_type '{extract_type}'. Use 'text', 'html', or 'attrs'."
 
-#         result_text = "\n".join(results)
-#         return f"Found {len(elements)} element(s) matching '{xpath}':\n\n{result_text}"
+        result_text = "\n".join(results)
+        return f"Found {len(elements)} element(s) matching '{xpath}':\n\n{result_text}"
 
-#     except Exception as e:
-#         return f"Error executing XPath query: {str(e)}"
+    except Exception as e:
+        return f"Error executing XPath query: {str(e)}"
 
 @tool
 def web_lookup_with_grep(
@@ -784,6 +784,152 @@ You may now operate on the file on disk at path '{file_path}' using your local t
 # {skeleton}
     return message
 
+
+def _chunk_html_for_task(
+    raw_html: str,
+    max_tokens: int = HTML_CHUNK_MAX_TOKENS,
+    max_chunks: int = HTML_CHUNK_MAX_SEGMENTS,
+):
+    """Prepare chunked HTML payload for task sub-agents.
+
+    Returns the payload plus metadata describing how many chunks were used."""
+    chunk_metadata = {
+        "max_tokens": max_tokens,
+        "max_chunks": max_chunks,
+        "used_chunks": 1,
+        "total_chunks": 1,
+        "truncated": False,
+        "error": None,
+    }
+
+    # Suppress noisy cssutils warnings from the html_chunking dependency
+    try:
+        import cssutils
+
+        cssutils.log.setLevel(logging.CRITICAL)
+    except Exception:
+        pass
+
+    try:
+        chunks = get_html_chunks(raw_html, max_tokens)
+    except Exception as exc:  # pragma: no cover - defensive fallback
+        chunk_metadata["error"] = str(exc)
+        return raw_html, chunk_metadata
+
+    if not chunks:
+        return raw_html, chunk_metadata
+
+    total_chunks = len(chunks)
+    limited_chunks = chunks[:max_chunks]
+    chunk_metadata.update(
+        {
+            "used_chunks": len(limited_chunks),
+            "total_chunks": total_chunks,
+            "truncated": total_chunks > max_chunks,
+        }
+    )
+
+    payload_sections = []
+    for idx, chunk in enumerate(limited_chunks, start=1):
+        payload_sections.append(
+            f"===== HTML CHUNK {idx}/{total_chunks} =====\n{chunk.strip()}"
+        )
+
+    payload = "\n\n".join(payload_sections)
+    return payload, chunk_metadata
+
+@tool
+def get_xpath_list(page_id: str, user_query: str, runtime: ToolRuntime) -> str:
+    """Search through HTML content to find XPath expressions matching a query.
+
+    This tool uses a sub-agent to analyze the HTML structure and return a list
+    of XPath expressions that point to the data you're looking for. It's useful
+    when you need to identify multiple similar elements or understand the structure
+    before extraction.
+
+    Args:
+        page_id: The page ID from web_load_web_page
+        user_query: Natural language description of what you're looking for
+                   (e.g., "all product prices", "table rows with Pokemon names")
+
+    Returns:
+        A markdown table with sections and their corresponding XPath expressions
+
+    Example:
+        # First load a page
+        web_load_web_page("https://example.com/products")
+
+        # Find XPaths for specific data
+        get_xpath_list(
+            page_id="page_abc123",
+            user_query="all product prices and their names"
+        )
+    """
+    from .task_tools import execute_task
+
+    try:
+        # 1. Validate page exists
+        if not data_exists(runtime, page_id):
+            return f"Error: No page found with ID '{page_id}'. Use web_load_web_page first."
+
+        data = retrieve_data(runtime, page_id)
+        if not isinstance(data, dict) or 'content' not in data:
+            return f"Error: '{page_id}' is not a valid page object."
+
+        raw_html = data["content"]
+        if not isinstance(raw_html, str):
+            return f"Error: '{page_id}' does not contain HTML content."
+
+        chunked_html, chunk_metadata = _chunk_html_for_task(raw_html)
+
+        # 2. Build task prompt for the sub-agent
+        task_prompt = f"""You are an HTML processing agent designed to search through HTML and retrieve one or more XPath expressions to data that the user is looking for.
+
+You are looking for: {user_query}
+
+Instructions:
+- Analyze the HTML structure carefully
+- Identify the XPath expressions that point to the requested data
+- Be as specific as possible with your XPath expressions
+- Test your XPath mentally to ensure it would select the right elements
+- Return ONLY a markdown table with the following format:
+
+| Section | XPath Expression |
+|---------|------------------|
+| Description of what this XPath finds | //actual/xpath/expression |
+
+Do not include any additional commentary before or after the table. Just return the table itself."""
+
+        # 3. Execute task with sub-agent
+        result = execute_task(
+            runtime=runtime,
+            prompt=task_prompt,
+            data_text=chunked_html,
+            enable_tools=False,  # No tools needed for XPath analysis
+        )
+
+        url = data["metadata"].get("url", "unknown")
+        chunk_notes = (
+            f"HTML chunks: {chunk_metadata['used_chunks']}/{chunk_metadata['total_chunks']} "
+            f"(max {chunk_metadata['max_tokens']} tokens each)"
+        )
+        if chunk_metadata.get("truncated"):
+            chunk_notes += f" - truncated to first {chunk_metadata['max_chunks']} chunks"
+        if chunk_metadata.get("error"):
+            chunk_notes += f" - chunking fallback: {chunk_metadata['error']}"
+        
+        return f"""✓ XPath search completed
+URL: {url}
+Query: "{user_query}"
+{chunk_notes}
+
+{result}
+
+You can now use web_extract_with_xpath() with any of these XPath expressions to extract the data."""
+
+    except Exception as e:
+        return f"Error searching for XPath expressions: {str(e)}"
+
 # LangChain tools list - all tools decorated with @tool
 WEB_TOOLS = [
     # Unified web scraping architecture
@@ -791,9 +937,12 @@ WEB_TOOLS = [
     web_get_markdown_view,          # Markdown view of loaded page
     # web_extract_markdown_section,   # Extract specific markdown section
     # web_extract_with_css,           # Query with CSS selectors
-    # web_extract_with_xpath,         # Query with XPath expressions
+    web_extract_with_xpath,         # Query with XPath expressions
 
     web_lookup_with_grep,           # Grep search on saved HTML file
+
+    # XPath discovery
+    get_xpath_list,                 # Use sub-agent to find XPath expressions
 
     # Semantic search tools
     # web_paged_markdown_find,        # Chunked semantic search through markdown with sub-agents

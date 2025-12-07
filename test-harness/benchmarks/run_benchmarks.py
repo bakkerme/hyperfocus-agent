@@ -66,10 +66,32 @@ def print_summary(results: list) -> None:
             b_avg = statistics.mean(b_durations)
             b_std = statistics.stdev(b_durations) if len(b_durations) > 1 else 0
             b_total_duration = sum(b_durations)
-            print(
+            # Aggregate scoring metrics when available (e.g. pokemon_to_csv)
+            final_scores = [
+                r.metrics.get("final_score")
+                for r in bench_results
+                if getattr(r, "metrics", None) and "final_score" in r.metrics
+            ]
+            per_run_scores: list[tuple[int, float]] = []
+            for idx, result in enumerate(bench_results, start=1):
+                score = None
+                if getattr(result, "metrics", None):
+                    score = result.metrics.get("final_score")
+                if score is not None:
+                    per_run_scores.append((idx, score))
+            avg_final_score = statistics.mean(final_scores) if final_scores else None
+
+            line = (
                 f"    {benchmark_name}: {b_successes}/{b_total} ({b_rate:.1f}%) | "
                 f"avg {b_avg:.2f}s (std: {b_std:.2f}s) | total {b_total_duration:.2f}s"
             )
+            if avg_final_score is not None:
+                line += f" | avg score {avg_final_score:.2f}"
+            if per_run_scores:
+                score_str = ", ".join(f"{idx}={score:.2f}" for idx, score in per_run_scores)
+                line += f" | scores [{score_str}]"
+
+            print(line)
 
     print("\n" + "=" * 60)
 

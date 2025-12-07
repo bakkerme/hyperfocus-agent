@@ -18,7 +18,7 @@ from .prompts import get_first_step_prompt
 def parse_args():
     """Parse CLI arguments for the message to send to the model."""
     parser = argparse.ArgumentParser(
-        description="Send a user message to the LangChain-powered Hyperfocus agent."
+        description="Send a user message to the Hyperfocus agent."
     )
     parser.add_argument(
         "message",
@@ -34,11 +34,12 @@ def parse_args():
 
 
 def main():
-    """Main entry point for LangChain-based agent."""
+    """Main entry point for agent."""
     # Suppress non-fatal OpenInference tracer warnings for multimodal content
     # This is a known issue with the tracer not fully supporting multimodal messages
     logging.getLogger("openinference.instrumentation.langchain._tracer").setLevel(logging.CRITICAL)
     logging.getLogger("httpx").setLevel(logging.WARNING)
+    logging.getLogger("cssutils").setLevel(logging.CRITICAL)
 
     # Initialize Phoenix observability
     phoenix_endpoint = os.getenv("PHOENIX_COLLECTOR_ENDPOINT", "http://localhost:6006")
