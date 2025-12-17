@@ -129,7 +129,6 @@ def test_get_xpath_list_success(mock_execute_task, mock_runtime):
     # Verify execute_task was called with correct parameters
     assert mock_execute_task.called
     call_args = mock_execute_task.call_args
-    assert call_args.kwargs["runtime"] == mock_runtime
     assert "all product information" in call_args.kwargs["prompt"]
     assert call_args.kwargs["data_text"] == SAMPLE_HTML
     assert call_args.kwargs["enable_tools"] is False

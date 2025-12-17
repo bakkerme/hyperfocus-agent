@@ -6,3 +6,5 @@ workspace
 test-harness/output
 benchmark-config.yml
 benchmark-config.yaml
+model-config.yaml
+model-config.yml

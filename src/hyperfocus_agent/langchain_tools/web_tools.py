@@ -659,9 +659,8 @@ Instructions:
 """
 
             try:
-                # Execute task on this chunk
+                # Execute task on this chunk (runtime-free core)
                 chunk_result = execute_task(
-                    runtime=runtime,
                     prompt=task_prompt,
                     data_text=chunk['text'],
                     enable_tools=False,  # No tools needed for simple search
@@ -867,9 +866,8 @@ Do not include any additional commentary before or after the table. Just return 
         for index, chunk in enumerate(chunked_html):
             print(f"→ [XPath Finder] Prepared chunk of size {len(chunk)} characters")
 
-            # 3. Execute task with sub-agent
+            # 3. Execute task with sub-agent (runtime-free core)
             result = execute_task(
-                runtime=runtime,
                 prompt=task_prompt,
                 data_text=chunk,
                 enable_tools=False,  # No tools needed for XPath analysis
