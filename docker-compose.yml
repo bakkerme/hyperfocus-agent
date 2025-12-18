@@ -108,6 +108,32 @@ services:
     networks:
       - hyperfocus-net
 
+  # Fake Reddit test server hosting the injection page
+  fake-reddit:
+    image: python:3.12-slim
+    container_name: fake-reddit
+    working_dir: /app
+    volumes:
+      - ./injection-test/fake-reddit:/app:ro
+    ports:
+      - "8081:8080"
+    command: python server.py
+    networks:
+      - hyperfocus-net
+
+  # Fake attacker site that echoes a fixed response on any request
+  innocent-boy:
+    image: python:3.12-slim
+    container_name: innocent-boy
+    working_dir: /app
+    volumes:
+      - ./injection-test/innocent-boy:/app:ro
+    ports:
+      - "8082:8080"
+    command: python server.py
+    networks:
+      - hyperfocus-net
+
   # Crawl4AI service for web scraping tasks
   crawl4ai:
     image: unclecode/crawl4ai:latest

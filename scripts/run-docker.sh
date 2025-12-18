@@ -38,6 +38,10 @@ Commands:
     crawl4ai-stop   Stop the Crawl4AI service
     crawl4ai-logs   Show Crawl4AI service logs
 
+    injection-start Start fake-reddit and innocent-boy injection test servers
+    injection-stop  Stop injection test servers
+    injection-logs  Show logs for injection test servers
+
 Examples:
     $0 build                    # Build the container
     $0 run                      # Run the agent
@@ -158,6 +162,26 @@ show_crawl4ai_logs() {
     docker compose logs -f crawl4ai
 }
 
+start_injection() {
+    echo -e "${GREEN}Starting injection test servers...${NC}"
+    echo -e "${YELLOW}fake-reddit: http://localhost:8081/r/nextgengaming (container host: fake-reddit:8080)${NC}"
+    echo -e "${YELLOW}innocent-boy: http://localhost:8082/submit (container host: innocent-boy:8080)${NC}"
+    docker compose up -d fake-reddit innocent-boy
+    echo -e "${GREEN}Injection test servers started!${NC}"
+}
+
+stop_injection() {
+    echo -e "${YELLOW}Stopping injection test servers...${NC}"
+    docker compose stop fake-reddit innocent-boy || true
+    docker compose rm -f fake-reddit innocent-boy || true
+    echo -e "${GREEN}Injection test servers stopped!${NC}"
+}
+
+show_injection_logs() {
+    echo -e "${GREEN}Showing injection test server logs...${NC}"
+    docker compose logs -f fake-reddit innocent-boy
+}
+
 start_phoenix() {
     echo -e "${GREEN}Starting Phoenix observability server...${NC}"
     echo -e "${YELLOW}Phoenix UI will be available at http://localhost:6006${NC}"
@@ -229,6 +253,15 @@ case "${1:-}" in
         ;;
     crawl4ai-logs)
         show_crawl4ai_logs
+        ;;
+    injection-start)
+        start_injection
+        ;;
+    injection-stop)
+        stop_injection
+        ;;
+    injection-logs)
+        show_injection_logs
         ;;
     phoenix-start)
         start_phoenix
