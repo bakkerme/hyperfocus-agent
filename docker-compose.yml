@@ -132,12 +132,12 @@ services:
       - hyperfocus-net
 
   # Fake attacker site that echoes a fixed response on any request
-  innocent-boy:
+  innocent-server:
     image: python:3.12-slim
-    container_name: innocent-boy
+    container_name: innocent-server
     working_dir: /app
     volumes:
-      - ./injection-test/innocent-boy:/app:ro
+      - ./injection-test/innocent-server:/app:ro
     ports:
       - "8082:8080"
     command: python server.py

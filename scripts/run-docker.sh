@@ -9,8 +9,6 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-TEST_PROMPT='Are we in a docker container? Is there anything in here that would be different from a bare container?'
-
 print_usage() {
     cat << EOF
 Usage: $0 [command]
@@ -60,22 +58,12 @@ EOF
 }
 
 build_container() {
-    echo -e "${GREEN}Building test container...${NC}"
+    echo -e "${GREEN}Building container...${NC}"
     docker compose build
     echo -e "${GREEN}Build complete!${NC}"
 }
-
-run_agent() {
-    echo -e "${GREEN}Running hyperfocus-agent in test container...${NC}"
-    echo -e "${YELLOW}Agent will execute in isolated environment at /workspace/test_area${NC}"
-    docker compose run --rm --service-ports hyperfocus-test /bin/bash -c "hyperfocus '${TEST_PROMPT}'"
-}
-
 open_shell() {
-    echo -e "${GREEN}Opening shell in test container...${NC}"
-    echo -e "${YELLOW}Working directory: /workspace/test_area${NC}"
-    echo -e "${YELLOW}Test fixtures available at: /workspace/fixtures${NC}"
-    docker compose run --rm --service-ports hyperfocus-test /bin/bash
+    docker compose run --rm --service-ports hyperfocus /bin/bash
 }
 
 clean_environment() {
@@ -92,13 +80,6 @@ rebuild_all() {
 
 show_logs() {
     docker compose logs -f
-}
-
-run_dev() {
-    echo -e "${GREEN}Running hyperfocus-agent in DEV mode...${NC}"
-    echo -e "${YELLOW}Source code changes will reflect immediately (no rebuild needed)${NC}"
-    echo -e "${YELLOW}Edit files in ./src/ and they'll update live in the container${NC}"
-    docker compose run --rm --service-ports hyperfocus-dev hyperfocus "${TEST_PROMPT}"
 }
 
 open_dev_shell() {
@@ -119,6 +100,10 @@ build_dev() {
     docker compose build hyperfocus-dev
     echo -e "${GREEN}Dev build complete!${NC}"
 }
+
+# ------------------------------------------------------
+# ------------ Service management functions ------------
+# ------------------------------------------------------
 
 start_asset_server() {
     echo -e "${GREEN}Starting asset server...${NC}"
@@ -165,21 +150,21 @@ show_crawl4ai_logs() {
 start_injection() {
     echo -e "${GREEN}Starting injection test servers...${NC}"
     echo -e "${YELLOW}fake-reddit: http://localhost:8081/r/nextgengaming (container host: fake-reddit:8080)${NC}"
-    echo -e "${YELLOW}innocent-boy: http://localhost:8082/submit (container host: innocent-boy:8080)${NC}"
-    docker compose up -d fake-reddit innocent-boy
+    echo -e "${YELLOW}innocent-server: http://localhost:8082/submit (container host: innocent-server:8080)${NC}"
+    docker compose up -d fake-reddit innocent-server
     echo -e "${GREEN}Injection test servers started!${NC}"
 }
 
 stop_injection() {
     echo -e "${YELLOW}Stopping injection test servers...${NC}"
-    docker compose stop fake-reddit innocent-boy || true
-    docker compose rm -f fake-reddit innocent-boy || true
+    docker compose stop fake-reddit innocent-server || true
+    docker compose rm -f fake-reddit innocent-server || true
     echo -e "${GREEN}Injection test servers stopped!${NC}"
 }
 
 show_injection_logs() {
     echo -e "${GREEN}Showing injection test server logs...${NC}"
-    docker compose logs -f fake-reddit innocent-boy
+    docker compose logs -f fake-reddit innocent-server
 }
 
 start_phoenix() {
