@@ -24,8 +24,6 @@ def initialize_models(local: ChatOpenAI, remote: ChatOpenAI, multimodal: ChatOpe
     remote_model = remote
     multimodal_model = multimodal
     router_threshold = threshold
-    print(f"✓ Models initialized for middleware")
-
 
 @before_model
 def strip_processed_images(state: HyperfocusState, runtime) -> dict | None:
@@ -101,12 +99,14 @@ def dynamic_model_selection(
     total_length = _calculate_message_length(messages)
     threshold = router_threshold
 
-    if total_length > threshold and remote_model is not None:
-        print(f"→ [LLM Router] Using REMOTE LLM (length: {total_length} > {threshold})")
-        request.model = remote_model
-    else:
-        print(f"→ [LLM Router] Using LOCAL LLM (length: {total_length} ≤ {threshold})")
-        request.model = local_model if local_model is not None else remote_model
+    # if total_length > threshold and remote_model is not None:
+    #     print(f"→ [LLM Router] Using REMOTE LLM (length: {total_length} > {threshold})")
+    #     request.model = remote_model
+    # else:
+        # print(f"→ [LLM Router] Using LOCAL LLM (length: {total_length} ≤ {threshold})")
+        # request.model = local_model if local_model is not None else remote_model
+
+    request.model = local_model if local_model is not None else remote_model
 
     return handler(request)
 

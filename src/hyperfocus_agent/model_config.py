@@ -71,7 +71,7 @@ class ModelConfig:
     router_threshold: int
     
     @classmethod
-    def from_environment(cls, verbose: bool = True) -> 'ModelConfig':
+    def from_environment(cls, verbose: bool = False) -> 'ModelConfig':
         """Load all model configurations from environment variables.
 
         Args:

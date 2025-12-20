@@ -99,7 +99,6 @@ def create_hyperfocus_agent():
         checkpointer=InMemorySaver(),
     )
 
-    print("✓ Agent initialized successfully")
     return agent
 
 

@@ -16,6 +16,15 @@ from .prompts import get_first_step_prompt
 
 from .shield.shield import ShieldHaltError
 
+
+def print_hyperfocus_banner() -> None:
+    banner = r"""
+░█░█░█░█░█▀█░█▀▀░█▀▄░█▀▀░█▀█░█▀▀░█░█░█▀▀
+░█▀█░░█░░█▀▀░█▀▀░█▀▄░█▀▀░█░█░█░░░█░█░▀▀█
+░▀░▀░░▀░░▀░░░▀▀▀░▀░▀░▀░░░▀▀▀░▀▀▀░▀▀▀░▀▀▀
+"""
+    print(banner)
+
 def parse_args():
     """Parse CLI arguments for the message to send to the model."""
     parser = argparse.ArgumentParser(
@@ -36,6 +45,8 @@ def parse_args():
 
 def main():
     """Main entry point for agent."""
+    print_hyperfocus_banner()
+
     # Suppress non-fatal OpenInference tracer warnings for multimodal content
     # This is a known issue with the tracer not fully supporting multimodal messages
     logging.getLogger("openinference.instrumentation.langchain._tracer").setLevel(logging.CRITICAL)
@@ -48,13 +59,13 @@ def main():
         tracer_provider = register(
             auto_instrument=True,  # Auto-trace LangChain calls
             project_name="hyperfocus-agent",
-            endpoint=f"{phoenix_endpoint}/v1/traces"
+            endpoint=f"{phoenix_endpoint}/v1/traces",
+            verbose=False
         )
-        print(f"✓ Phoenix tracing initialized - UI at {phoenix_endpoint}")
+        # print(f"✓ Phoenix tracing initialized - UI at {phoenix_endpoint}")
     except Exception as e:
         print(f"⚠ Phoenix tracing unavailable: {e}")
         print("Continuing without observability...")
-    print()
 
     # Parse arguments
     args = parse_args()
@@ -78,16 +89,16 @@ def main():
             config=config
         )
 
-        # Extract and print the final response
-        messages = result.get("messages", [])
-        if messages:
-            final_message = messages[-1]
-            if hasattr(final_message, 'content'):
-                print(final_message.content)
-            else:
-                print(final_message)
-        else:
-            print("(No response from agent)")
+        # # Extract and print the final response
+        # messages = result.get("messages", [])
+        # if messages:
+        #     final_message = messages[-1]
+        #     if hasattr(final_message, 'content'):
+        #         print(final_message.content)
+        #     else:
+        #         print(final_message)
+        # else:
+        #     print("(No response from agent)")
 
         print()
         print("-" * 80)

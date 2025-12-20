@@ -42,6 +42,8 @@ def execute_shell_command(command: str) -> str:
 
         output = result.stdout.strip()
 
+        print(output)
+
         if not output:
             return f"Command executed successfully (no output)."
 
