@@ -23,6 +23,16 @@ from ..langchain_state import DataEntry, HyperfocusState, HyperfocusContext, dat
 HTML_CHUNK_MAX_TOKENS = 100000
 HTML_CHUNK_MAX_SEGMENTS = 99999
 
+
+def _tool_message(content: str, runtime: ToolRuntime, shield: bool = False) -> ToolMessage:
+    if shield:
+        return ToolMessage(
+            content=content,
+            tool_call_id=runtime.tool_call_id,
+            additional_kwargs={"shield": True},
+        )
+    return ToolMessage(content=content, tool_call_id=runtime.tool_call_id)
+
     # - web_extract_with_css() - Query with CSS selectors
     # - web_extract_markdown_section() - Extract specific markdown section
 @tool
@@ -111,10 +121,7 @@ Also available on disk as '{full_path}' for local file processing using grep or 
         return Command(update={
             "stored_data": {page_id: page_entry},
             "messages": [
-                ToolMessage(
-                    content=message,
-                    tool_call_id=runtime.tool_call_id
-                )
+                _tool_message(message, runtime, shield=False)
             ]
         })
 
@@ -122,10 +129,7 @@ Also available on disk as '{full_path}' for local file processing using grep or 
         message = f"Error fetching URL: {str(e)}"
         return Command(update={
             "messages": [
-                ToolMessage(
-                    content=message,
-                    tool_call_id=runtime.tool_call_id
-                )
+                _tool_message(message, runtime)
             ]
         })
 
@@ -133,15 +137,12 @@ Also available on disk as '{full_path}' for local file processing using grep or 
         message = f"Error processing page: {str(e)}"
         return Command(update={
             "messages": [
-                ToolMessage(
-                    content=message,
-                    tool_call_id=runtime.tool_call_id
-                )
+                _tool_message(message, runtime)
             ]
         })
 
 @tool
-def web_get_markdown_view(page_id: str, runtime: ToolRuntime) -> str:
+def web_get_markdown_view(page_id: str, runtime: ToolRuntime) -> ToolMessage:
     """Convert a loaded web page to markdown format. This is useful for finding strings
     or reasoning about content structure.
 
@@ -156,16 +157,25 @@ def web_get_markdown_view(page_id: str, runtime: ToolRuntime) -> str:
     """
     try:
         if not data_exists(runtime, page_id):
-            return f"Error: No page found with ID '{page_id}'. Use web_load_web_page first."
+            return _tool_message(
+                f"Error: No page found with ID '{page_id}'. Use web_load_web_page first.",
+                runtime,
+            )
 
         data = retrieve_data(runtime, page_id)
         if not isinstance(data, dict) or 'content' not in data:
-            return f"Error: '{page_id}' is not a valid page object."
+            return _tool_message(
+                f"Error: '{page_id}' is not a valid page object.",
+                runtime,
+            )
 
         raw_html = data["content"]
 
         if not isinstance(raw_html, str):
-            return f"Error: '{page_id}' does not contain HTML content."
+            return _tool_message(
+                f"Error: '{page_id}' does not contain HTML content.",
+                runtime,
+            )
 
         # Convert to markdown
         h = html2text.HTML2Text()
@@ -197,7 +207,8 @@ def web_get_markdown_view(page_id: str, runtime: ToolRuntime) -> str:
         if len(markdown_content) > 10000:
             markdown_content = markdown_content[:10000] + "\n\n...(truncated due to max length)..."
 
-        return f"""✓ Markdown view of {url}
+        return _tool_message(
+            f"""✓ Markdown view of {url}
 Size: {len(markdown_content)} characters
 
 Headings structure:
@@ -210,14 +221,18 @@ To extract a specific section, use:
 or
 web_paged_markdown_find(page_id="{page_id}", lookup_prompt="your query here")
 """
+            ,
+            runtime,
+            shield=True,
+        )
 # web_extract_markdown_section(page_id="{page_id}", heading_query="heading text")
 
     except Exception as e:
-        return f"Error generating markdown view: {str(e)}"
+        return _tool_message(f"Error generating markdown view: {str(e)}", runtime)
 
 
 # @tool
-def web_extract_markdown_section(page_id: str, heading_query: str, runtime: ToolRuntime) -> str:
+def web_extract_markdown_section(page_id: str, heading_query: str, runtime: ToolRuntime) -> ToolMessage:
     """Extract a specific section from a loaded page's markdown view.
 
     Args:
@@ -230,16 +245,25 @@ def web_extract_markdown_section(page_id: str, heading_query: str, runtime: Tool
     try:
         # Retrieve the stored page
         if not data_exists(runtime, page_id):
-            return f"Error: No page found with ID '{page_id}'. Use web_load_web_page first."
+            return _tool_message(
+                f"Error: No page found with ID '{page_id}'. Use web_load_web_page first.",
+                runtime,
+            )
 
         data = retrieve_data(runtime, page_id)
         if not isinstance(data, dict) or 'content' not in data:
-            return f"Error: '{page_id}' is not a valid page object."
+            return _tool_message(
+                f"Error: '{page_id}' is not a valid page object.",
+                runtime,
+            )
 
         raw_html = data["content"]
 
         if not isinstance(raw_html, str):
-            return f"Error: '{page_id}' does not contain HTML content."
+            return _tool_message(
+                f"Error: '{page_id}' does not contain HTML content.",
+                runtime,
+            )
 
         # Convert to markdown
         h = html2text.HTML2Text()
@@ -257,7 +281,7 @@ def web_extract_markdown_section(page_id: str, heading_query: str, runtime: Tool
         headers = headers_dict.get('Header', [])
 
         if not headers:
-            return "Error: No headings found in markdown content"
+            return _tool_message("Error: No headings found in markdown content", runtime)
 
         # Find the matching heading (case-insensitive partial match)
         query_lower = heading_query.lower()
@@ -275,7 +299,7 @@ def web_extract_markdown_section(page_id: str, heading_query: str, runtime: Tool
             if len(headers) > 10:
                 available_headings += f"\n  ... and {len(headers) - 10} more"
             error_msg = f"Error: No heading found matching '{heading_query}'.\n\nAvailable headings:\n{available_headings}"
-            return error_msg
+            return _tool_message(error_msg, runtime)
 
         # Find the end line (next heading of same or higher level)
         start_line = matched_heading['line']
@@ -306,10 +330,10 @@ Content length: {len(extracted_content)} characters
 
 {extracted_content}"""
 
-        return result_message
+        return _tool_message(result_message, runtime, shield=True)
 
     except Exception as e:
-        return f"Error extracting section: {str(e)}"
+        return _tool_message(f"Error extracting section: {str(e)}", runtime)
 
 # @tool
 # def retrieve_stored_readable_web_section(data_id: str, runtime: ToolRuntime[HyperfocusContext, HyperfocusState]) -> str:
@@ -339,7 +363,7 @@ Content length: {len(extracted_content)} characters
 
 
 # @tool
-def web_extract_with_css(page_id: str, selector: str, extract_type: str, runtime: ToolRuntime) -> str:
+def web_extract_with_css(page_id: str, selector: str, extract_type: str, runtime: ToolRuntime) -> ToolMessage:
     """Extract data from a loaded page using CSS selectors.
 
     Use the DOM skeleton from web_load_web_page to design your selectors.
@@ -353,16 +377,25 @@ def web_extract_with_css(page_id: str, selector: str, extract_type: str, runtime
         Extracted data as text (may be JSON for attrs)
     """
     if not data_exists(runtime, page_id):
-        return f"Error: No page found with ID '{page_id}'. Use web_load_web_page first."
+        return _tool_message(
+            f"Error: No page found with ID '{page_id}'. Use web_load_web_page first.",
+            runtime,
+        )
 
     data = retrieve_data(runtime, page_id)
     if not isinstance(data, dict) or "content" not in data:
-        return f"Error: '{page_id}' is not a valid page object."
+        return _tool_message(
+            f"Error: '{page_id}' is not a valid page object.",
+            runtime,
+        )
 
     raw_html = data["content"]
 
     if not isinstance(raw_html, str):
-        return f"Error: '{page_id}' does not contain HTML content."
+        return _tool_message(
+            f"Error: '{page_id}' does not contain HTML content.",
+            runtime,
+        )
 
     # Parse HTML on-demand with BeautifulSoup
     soup = BeautifulSoup(raw_html, 'lxml')
@@ -371,7 +404,7 @@ def web_extract_with_css(page_id: str, selector: str, extract_type: str, runtime
     elements = soup.select(selector)
 
     if not elements:
-        return f"No elements found matching selector: {selector}"
+        return _tool_message(f"No elements found matching selector: {selector}", runtime)
 
     results = []
     for i, elem in enumerate(elements):
@@ -385,14 +418,21 @@ def web_extract_with_css(page_id: str, selector: str, extract_type: str, runtime
             attrs = dict(elem.attrs)
             results.append(f"[{i}] {attrs}")
         else:
-            return f"Error: Unknown extract_type '{extract_type}'. Use 'text', 'html', or 'attrs'."
+            return _tool_message(
+                f"Error: Unknown extract_type '{extract_type}'. Use 'text', 'html', or 'attrs'.",
+                runtime,
+            )
 
     result_text = "\n".join(results)
-    return f"Found {len(elements)} element(s) matching '{selector}':\n\n{result_text}"
+    return _tool_message(
+        f"Found {len(elements)} element(s) matching '{selector}':\n\n{result_text}",
+        runtime,
+        shield=True,
+    )
 
 
 @tool
-def web_extract_with_xpath(page_id: str, xpath: str, extract_type: str, runtime: ToolRuntime) -> str:
+def web_extract_with_xpath(page_id: str, xpath: str, extract_type: str, runtime: ToolRuntime) -> ToolMessage:
     """Extract data from a loaded page using XPath queries.
 
     Use the markdown outline from web_load_web_page to find XPath expressions,
@@ -407,16 +447,25 @@ def web_extract_with_xpath(page_id: str, xpath: str, extract_type: str, runtime:
         Extracted data as a string
     """
     if not data_exists(runtime, page_id):
-        return f"Error: No page found with ID '{page_id}'. Use web_load_web_page first."
+        return _tool_message(
+            f"Error: No page found with ID '{page_id}'. Use web_load_web_page first.",
+            runtime,
+        )
 
     data = retrieve_data(runtime, page_id)
     if not isinstance(data, dict) or "content" not in data:
-        return f"Error: '{page_id}' is not a valid page object."
+        return _tool_message(
+            f"Error: '{page_id}' is not a valid page object.",
+            runtime,
+        )
 
     raw_html = data["content"]
 
     if not isinstance(raw_html, str):
-        return f"Error: '{page_id}' does not contain HTML content."
+        return _tool_message(
+            f"Error: '{page_id}' does not contain HTML content.",
+            runtime,
+        )
 
     # Parse with lxml for full XPath support
     try:
@@ -426,7 +475,7 @@ def web_extract_with_xpath(page_id: str, xpath: str, extract_type: str, runtime:
         elements = tree.xpath(xpath)
 
         if not elements:
-            return f"No elements found matching XPath: {xpath}"
+            return _tool_message(f"No elements found matching XPath: {xpath}", runtime)
 
         results = []
         for i, elem in enumerate(elements):
@@ -454,13 +503,20 @@ def web_extract_with_xpath(page_id: str, xpath: str, extract_type: str, runtime:
                 else:
                     results.append(f"[{i}] (no attributes)")
             else:
-                return f"Error: Unknown extract_type '{extract_type}'. Use 'text', 'html', or 'attrs'."
+                    return _tool_message(
+                        f"Error: Unknown extract_type '{extract_type}'. Use 'text', 'html', or 'attrs'.",
+                        runtime,
+                    )
 
         result_text = "\n".join(results)
-        return f"Found {len(elements)} element(s) matching '{xpath}':\n\n{result_text}"
+        return _tool_message(
+            f"Found {len(elements)} element(s) matching '{xpath}':\n\n{result_text}",
+            runtime,
+            shield=True,
+        )
 
     except Exception as e:
-        return f"Error executing XPath query: {str(e)}"
+        return _tool_message(f"Error executing XPath query: {str(e)}", runtime)
 
 @tool
 def web_lookup_with_grep(
@@ -468,7 +524,7 @@ def web_lookup_with_grep(
     query: str,
     page_id: str,
     context_lines: int = 3,
-) -> str:
+) -> ToolMessage:
     """Perform a ripgrep search against stored HTML content with optional context.
 
     Args:
@@ -481,18 +537,27 @@ def web_lookup_with_grep(
     """
 
     if context_lines < 0:
-        return "Error: context_lines must be zero or greater."
+        return _tool_message("Error: context_lines must be zero or greater.", runtime)
 
     if not data_exists(runtime, page_id):
-        return f"Error: No page found with ID '{page_id}'. Use web_load_web_page first."
+        return _tool_message(
+            f"Error: No page found with ID '{page_id}'. Use web_load_web_page first.",
+            runtime,
+        )
 
     data = retrieve_data(runtime, page_id)
     if not isinstance(data, dict) or "content" not in data:
-        return f"Error: '{page_id}' is not a valid page object."
+        return _tool_message(
+            f"Error: '{page_id}' is not a valid page object.",
+            runtime,
+        )
 
     raw_html = data["content"]
     if not isinstance(raw_html, str):
-        return f"Error: '{page_id}' does not contain HTML content."
+        return _tool_message(
+            f"Error: '{page_id}' does not contain HTML content.",
+            runtime,
+        )
 
     temp_path = None
     try:
@@ -509,21 +574,26 @@ def web_lookup_with_grep(
         output = (result.as_string or "").strip()
 
         if not output:
-            return f"No matches found for query '{query}'."
+            return _tool_message(f"No matches found for query '{query}'.", runtime)
 
         if len(output) > 15000:
             output = output[:15000] + "\n...(truncated due to max length. Try narrowing your query or reducing context lines)..."
 
         context_desc = "no context" if context_lines == 0 else f"±{context_lines} line(s) context"
-        return (
+        return _tool_message(
             f"Found matches for '{query}' ({context_desc}):\n\n"
-            f"{output}"
+            f"{output}",
+            runtime,
+            shield=True,
         )
 
     except re.error as exc:
-        return f"Error: Invalid regular expression '{query}': {str(exc)}"
+        return _tool_message(
+            f"Error: Invalid regular expression '{query}': {str(exc)}",
+            runtime,
+        )
     except Exception as exc:
-        return f"Error performing grep search: {str(exc)}"
+        return _tool_message(f"Error performing grep search: {str(exc)}", runtime)
     finally:
         if temp_path and os.path.exists(temp_path):
             os.remove(temp_path)
@@ -801,7 +871,7 @@ def _chunk_html_for_task(
 
     return get_html_chunks(raw_html, max_tokens)
 @tool
-def get_xpath_list(page_id: str, user_query: str, runtime: ToolRuntime) -> str:
+def get_xpath_list(page_id: str, user_query: str, runtime: ToolRuntime) -> ToolMessage:
     """Search through HTML content to find XPath expressions matching a query.
 
     This tool uses a sub-agent to analyze the HTML structure and return a list
@@ -832,15 +902,24 @@ def get_xpath_list(page_id: str, user_query: str, runtime: ToolRuntime) -> str:
     try:
         # 1. Validate page exists
         if not data_exists(runtime, page_id):
-            return f"Error: No page found with ID '{page_id}'. Use web_load_web_page first."
+            return _tool_message(
+                f"Error: No page found with ID '{page_id}'. Use web_load_web_page first.",
+                runtime,
+            )
 
         data = retrieve_data(runtime, page_id)
         if not isinstance(data, dict) or 'content' not in data:
-            return f"Error: '{page_id}' is not a valid page object."
+            return _tool_message(
+                f"Error: '{page_id}' is not a valid page object.",
+                runtime,
+            )
 
         raw_html = data["content"]
         if not isinstance(raw_html, str):
-            return f"Error: '{page_id}' does not contain HTML content."
+            return _tool_message(
+                f"Error: '{page_id}' does not contain HTML content.",
+                runtime,
+            )
 
         chunked_html = _chunk_html_for_task(raw_html)
 
@@ -878,15 +957,20 @@ Do not include any additional commentary before or after the table. Just return 
 
         url = data["metadata"].get("url", "unknown")
         
-        return f"""✓ XPath search completed
+        return _tool_message(
+            f"""✓ XPath search completed
 Query: "{user_query}"
 
 {result}
 
 You can now use web_extract_with_xpath() with any of these XPath expressions to extract the data."""
+            ,
+            runtime,
+            shield=True,
+        )
 
     except Exception as e:
-        return f"Error searching for XPath expressions: {str(e)}"
+        return _tool_message(f"Error searching for XPath expressions: {str(e)}", runtime)
 
 # LangChain tools list - all tools decorated with @tool
 WEB_TOOLS = [

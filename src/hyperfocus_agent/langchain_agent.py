@@ -22,6 +22,7 @@ from .middleware.image_middleware import (
     strip_processed_images,
 )
 from .middleware.logging_middleware import log_tool_execution
+from .middleware.shield_middleware import shield_tool_output
 from .middleware.context_middleware import filter_old_script_versions
 from .middleware.tool_middleware import available_tools
 
@@ -90,6 +91,7 @@ def create_hyperfocus_agent():
             strip_processed_images,
             dynamic_model_selection,
             log_tool_execution,
+            shield_tool_output,
             available_tools,
             # summarisation_middleware,
             context_editing_middleware,

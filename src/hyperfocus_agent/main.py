@@ -14,6 +14,7 @@ from phoenix.otel import register
 from .langchain_agent import create_hyperfocus_agent, get_agent_config
 from .prompts import get_first_step_prompt
 
+from .shield.shield import ShieldHaltError
 
 def parse_args():
     """Parse CLI arguments for the message to send to the model."""
@@ -46,7 +47,7 @@ def main():
     try:
         tracer_provider = register(
             auto_instrument=True,  # Auto-trace LangChain calls
-            project_name="hyperfocus-agent-langchain",
+            project_name="hyperfocus-agent",
             endpoint=f"{phoenix_endpoint}/v1/traces"
         )
         print(f"✓ Phoenix tracing initialized - UI at {phoenix_endpoint}")
@@ -93,6 +94,9 @@ def main():
         print("✓ Agent execution complete")
         print("-" * 80)
 
+    except ShieldHaltError as e:
+        print(f"\n\n✗ Shield halted execution: {e}")
+        sys.exit(1)
     except KeyboardInterrupt:
         print("\n\n⚠ Interrupted by user")
         sys.exit(1)
